@@ -1,6 +1,6 @@
 # Introduction
 
-Bitty HTTP is a small lightweight web server designed be used in small micro controlers, but powerful enough to be used with large embedded processors and even embedded into larger programs.
+Bitty HTTP is a small lightweight web server designed be used in small microcontrollers, but powerful enough to be used with large embedded processors and even embedded into larger programs.
 
 If you are looking for small, simple, easy to use HTTP server with minimal dependencies then you have found what you are looking for.
 
