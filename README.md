@@ -6,6 +6,12 @@ If you are looking for small, simple, easy to use HTTP server with minimal depen
 
 Bitty HTTP is licensed under the MIT License (see License.txt). This means you are free to use this software however you want as long as you keep the copyright notice.
 
+# Web site
+
+You can access the web site for Bitty HTTP at http://bittyhttp.com and the documentation at http://bittyhttp.com/Development.html
+
+The web site is running under Bitty HTTP as am example of what Bitty HTTP can do.
+
 # Build and run
 
 ## Prerequisite for building
@@ -29,9 +35,3 @@ So to compile a basic server:
 `gcc main.c SocketsCon.c FileServer.c WebServer.c -o example.exe`
 
 is all you need.
-
-# Web site
-
-You can access the web site for Bitty HTTP at http://bittyhttp.com and the documentation at http://bittyhttp.com/Development.html
-
-The web site is running under Bitty HTTP.
