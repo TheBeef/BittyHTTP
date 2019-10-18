@@ -47,12 +47,19 @@
 const char m_LinksHTML[]=
 "<h1><span>1</span>Links</h1>\n"
 "<table>\n"
+
 "<tr>\n"
 "<td><a href='https://www.gnu.org/software/libmicrohttpd/'>GNU Libmicrohttpd</a></td>\n"
 "<td>A small C library for adding a http server to an existing application.  "
 "It includes a list of other embedded HTTP server libraries at the bottom of "
 "the page</td>\n"
 "</tr>\n"
+
+"<tr>\n"
+"<td><a href='https://github.com/TheBeef/bittyhttp'>GitHub Project Page</a></td>\n"
+"<td>The main project page for "PRODUCTNAME".</td>\n"
+"</tr>\n"
+
 "</table>\n"
 "";
 
