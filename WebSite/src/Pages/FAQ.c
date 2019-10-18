@@ -102,7 +102,7 @@ const char m_FAQHTML[]=
 "<span class='coderef'>SocketsCon.c</span> that supports SSL</p>"
 ""
 "<a id='5' class='anchor'></a>"
-"<h1><span>4</span>Why is this web site running under "PRODUCTNAME" instead "
+"<h1><span>5</span>Why is this web site running under "PRODUCTNAME" instead "
 "of a real web server?</h1>\n"
 "<p>Mostly because I could.</p>"
 "<p>Also it provides a larger example (albeit not the cleanest one).</p>"

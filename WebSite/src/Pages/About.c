@@ -111,7 +111,7 @@ const char m_AboutHTML[]=
 
 "<p>A few years later I wanted a web server again.  Again I looked around "
 "and nothing (that I could find anyway) that fit my needs. The \"too hard\" "
-"discussion was still bugging me so I desided to see how long it would take "
+"discussion was still bugging me so I decided to see how long it would take "
 "to write a web server from nothing. One day later I had a basic web server "
 "up and running with GET and Cookie support. The code was not all that "
 "clean but it was still only 1 day to write one.</p>\n"

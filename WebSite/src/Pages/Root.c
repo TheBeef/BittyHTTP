@@ -50,7 +50,7 @@
 const char HelloWorldHTML[]=
 "<h1><span>1</span>Welcome</h1>\n"
 "<p>"PRODUCTNAME" is a small lightweight web server designed be used in small\n"
-"micro controlers, but powerful enough to be used with large embedded processors\n"
+"microcontrollers, but powerful enough to be used with large embedded processors\n"
 "and even embedded into larger programs.</p>\n"
 "\n"
 "<p>If you are looking for small, simple, easy to use HTTP server with minimal\n"
