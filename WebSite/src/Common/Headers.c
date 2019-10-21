@@ -66,6 +66,21 @@ struct MainMenuEntry m_MainMenu[]=
 };
 
 const char m_PageEnd[]=
+"<!-- Matomo -->\n"
+"<script type=\"text/javascript\">\n"
+"  var _paq = window._paq || [];\n"
+"  /* tracker methods like \"setCustomDimension\" should be called before \"trackPageView\" */\n"
+"  _paq.push(['trackPageView']);\n"
+"  _paq.push(['enableLinkTracking']);\n"
+"  (function() {\n"
+"    var u=\"//matomo.bittyhttp.com/\";\n"
+"    _paq.push(['setTrackerUrl', u+'matomo.php']);\n"
+"    _paq.push(['setSiteId', '1']);\n"
+"    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];\n"
+"    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);\n"
+"  })();\n"
+"</script>\n"
+"<!-- End Matomo Code -->\n"
 "</head>\n";
 
 void Start_Head(struct WebServer *Web,const char *PageTitle)
