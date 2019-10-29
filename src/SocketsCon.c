@@ -2,7 +2,7 @@
  * FILENAME: SocketsCon.c
  *
  * PROJECT:
- *    Bitty HTTP 1.0
+ *    Bitty HTTP
  *
  * FILE DESCRIPTION:
  *    This version is a basic version of the sockets connection system.  It

@@ -2,7 +2,7 @@
  * FILENAME: Options.h
  * 
  * PROJECT:
- *    Bitty HTTP 1.0
+ *    Bitty HTTP
  *
  * FILE DESCRIPTION:
  *    This file has things that you might want to change to config the web

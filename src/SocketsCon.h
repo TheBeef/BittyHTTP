@@ -2,7 +2,7 @@
  * FILENAME: SocketsCon.h
  * 
  * PROJECT:
- *    Bitty HTTP 1.0
+ *    Bitty HTTP
  *
  * FILE DESCRIPTION:
  *    This file has the functions that can be called to access the sockets

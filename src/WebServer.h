@@ -2,7 +2,7 @@
  * FILENAME: WebServer.h
  * 
  * PROJECT:
- *    Bitty HTTP 1.0
+ *    Bitty HTTP
  *
  * FILE DESCRIPTION:
  *    This is the web server's main .h file.  You need to copy this file to
