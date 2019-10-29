@@ -2,7 +2,7 @@
  * FILENAME: WebServer.c
  *
  * PROJECT:
- *    Bitty HTTP 1.0
+ *    Bitty HTTP 1.1
  *
  * FILE DESCRIPTION:
  *    This file has the main web server in it.  You need to copy this file
