@@ -54,7 +54,21 @@
 //    },
 //};
 
-static struct ReleaseNote m_Notes_First[]=
+static struct ReleaseNote m_Notes_1_1[]=
+{
+    {
+        "Added WS_WriteWholeStr() function",
+         "A new version of WS_WriteWhole() has been added that works with"
+         " C strings instead of known buffer sizes"
+    },
+    {
+        "Added WS_WriteChunkStr() function",
+         "A new version of WS_WriteChunk() has been added that works with"
+         " C strings instead of known buffer sizes"
+    },
+};
+
+static struct ReleaseNote m_Notes_1_0[]=
 {
     {
         "First Version",
@@ -64,7 +78,8 @@ static struct ReleaseNote m_Notes_First[]=
 
 const struct ReleaseInfo m_ReleaseNotes[]=
 {
-    {"1.0","08 Sep 2019","First Release",m_Notes_First,sizeof(m_Notes_First)/sizeof(struct ReleaseNote)},
+    {"1.0","08 Sep 2019","First Release",m_Notes_1_0,sizeof(m_Notes_1_0)/sizeof(struct ReleaseNote)},
+    {"1.1","29 Oct 2019","New C String Functions",m_Notes_1_1,sizeof(m_Notes_1_1)/sizeof(struct ReleaseNote)},
 };
 
 const unsigned long m_ReleaseNoteCount=sizeof(m_ReleaseNotes)/sizeof(struct ReleaseInfo);

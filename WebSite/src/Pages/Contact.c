@@ -27,7 +27,8 @@
 /*** VARIABLE DEFINITIONS     ***/
 const char m_ContactHTML[]=
 "<h1><span>1</span>Contact</h1>\n"
-"My email:<a href='mailto:paul@bittyhttp.com'>paul@bittyhttp.com</a>";
+"You can contact me by email at <a href='mailto:paul@bittyhttp.com'>paul@bittyhttp.com</a><br/>"
+"You can also access the project page on GitHub at <a href='https://github.com/TheBeef/BittyHTTP'>https://github.com/TheBeef/BittyHTTP</a><br/>";
 
 void File_Contact(struct WebServer *Web)
 {

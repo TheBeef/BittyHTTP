@@ -2,7 +2,7 @@
  * FILENAME: WebServer.h
  * 
  * PROJECT:
- *    Bitty HTTP
+ *    Bitty HTTP 1.0
  *
  * FILE DESCRIPTION:
  *    This is the web server's main .h file.  You need to copy this file to
@@ -132,7 +132,9 @@ void WS_Shutdown(void);
 bool WS_Start(uint16_t Port);
 void WS_Tick(void);
 void WS_WriteWhole(struct WebServer *Web,const char *Buffer,int Len);
+void WS_WriteWholeStr(struct WebServer *Web,const char *Buffer);
 void WS_WriteChunk(struct WebServer *Web,const char *Buffer,int Len);
+void WS_WriteChunkStr(struct WebServer *Web,const char *Buffer);
 bool WS_Header(struct WebServer *Web,const char *Header);
 bool WS_Location(struct WebServer *Web,const char *NewURL);
 bool WS_SetHTTPStatusCode(struct WebServer *Web,e_ReplyStatusType Code);

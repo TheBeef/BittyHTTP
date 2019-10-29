@@ -120,7 +120,7 @@ const char m_TheBasicsHTML[]=
 "<ul>\n"
 "    <li>it allows the web server to use non standard socket interfaces (this does happen)</li>\n"
 "    <li>it changes everything over to nonblocking calls</li>\n"
-"    <li>it can be used to handle SSL sockets without having to change the main web server code (you only have to call SocketsCon?_Read() instead of read() or SSL_read())</li>\n"
+"    <li>it can be used to handle SSL sockets without having to change the main web server code (you only have to call SocketsCon_Read() instead of read() or SSL_read())</li>\n"
 "</ul>\n"
 "\n"
 "<h2>FileServer.c</h2>\n"

@@ -37,30 +37,21 @@
 /*** FUNCTION PROTOTYPES      ***/
 
 /*** VARIABLE DEFINITIONS     ***/
-static void StatInfo_PrintIt(struct WebServer *Web,const char *fmt,...);
+//static void StatInfo_PrintIt(struct WebServer *Web,const char *fmt,...);
 
 void File_StatInfo(struct WebServer *Web)
 {
-    char cwd[PATH_MAX];
-
-    if (getcwd(cwd, sizeof(cwd)) != NULL)
-    {
-        StatInfo_PrintIt(Web,"Current working dir: %s<br/>", cwd);
-    }
-    else
-    {
-        StatInfo_PrintIt(Web,"getcwd() error<br/>");
-    }
+    WS_WriteChunkStr(Web,"Empty page...");
 }
-
-static void StatInfo_PrintIt(struct WebServer *Web,const char *fmt,...)
-{
-    char buff[1000];
-    va_list args;
-
-    va_start (args, fmt);
-    vsnprintf (buff,sizeof(buff),fmt,args);
-    va_end (args);
-
-    WS_WriteChunk(Web,buff,strlen(buff));
-}
+//
+//static void StatInfo_PrintIt(struct WebServer *Web,const char *fmt,...)
+//{
+//    char buff[1000];
+//    va_list args;
+//
+//    va_start (args, fmt);
+//    vsnprintf (buff,sizeof(buff),fmt,args);
+//    va_end (args);
+//
+//    WS_WriteChunk(Web,buff,strlen(buff));
+//}

@@ -56,7 +56,6 @@ static void WS_SendResponse(struct WebServer *Web);
 static void WS_ProcessETag(struct WebServer *Web,bool Weak,const char *ETag);
 static void WS_ResetWebServer(struct WebServer *Web);
 static void WS_EndReply(struct WebServer *Web);
-static void DEBUG_PrintStoredArgs(struct WebServer *Web);
 static char *WS_SkipStorageArgs(char *StartingPos,const char **ArgsList);
 static const char *WS_FindArgInStorage(char *Pos,const char *Arg,
         const char **ArgsList);
@@ -64,6 +63,7 @@ static void WS_StartReply(struct WebServer *Web);
 static void WS_StartProcessingPOSTVar(struct WebServer *Web);
 static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web);
 static void WS_InsertCopy(char *Dest,char *DestEnd,const char *Src,int CopyLen);
+//static void DEBUG_PrintStoredArgs(struct WebServer *Web);
 
 /*** VARIABLE DEFINITIONS     ***/
 struct SocketCon m_ListeningSocket;
@@ -1059,6 +1059,69 @@ void WS_WriteChunk(struct WebServer *Web,const char *Buffer,int Len)
     SocketsCon_Write(&Web->Con,buff,strlen(buff));
     SocketsCon_Write(&Web->Con,Buffer,Len);
     SocketsCon_Write(&Web->Con,"\r\n",2);   // End of chunk
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_WriteWholeStr
+ *
+ * SYNOPSIS:
+ *    void WS_WriteWholeStr(struct WebServer *Web,const char *Buffer);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    Buffer [I] -- The buffer with the whole contents to send in it.  This
+ *                  is a C string (ending in \0).
+ *
+ * FUNCTION:
+ *    This function sends the content to the client using 'Content-Length'.
+ *    After you call this function you can not send any more content or headers.
+ *
+ *    This is the same as WS_WriteWhole() except it works on a C string
+ *    instead of a buffer.  This function just calls WS_WriteWhole() with
+ *    a strlen() for the length.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    WS_Start(), WS_WriteWhole()
+ ******************************************************************************/
+void WS_WriteWholeStr(struct WebServer *Web,const char *Buffer)
+{
+    WS_WriteWhole(Web,Buffer,strlen(Buffer));
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_WriteChunkStr
+ *
+ * SYNOPSIS:
+ *    void WS_WriteChunkStr(struct WebServer *Web,const char *Buffer);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    Buffer [I] -- The buffer with the contents to send in it.  This is
+ *                  a C string (ending in \0).
+ *
+ * FUNCTION:
+ *    This function sends content using the chunked method.  This means you
+ *    do not need to know the length of the content before sending (you can
+ *    build it as you go).
+ *
+ *    This is the same as WS_WriteChunk() except it works on a C string
+ *    instead of a buffer.  This function just calls WS_WriteChunk() with
+ *    a strlen() for the length.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    WS_Start(), WS_WriteChunk()
+ ******************************************************************************/
+void WS_WriteChunkStr(struct WebServer *Web,const char *Buffer)
+{
+    WS_WriteChunk(Web,Buffer,strlen(Buffer));
 }
 
 /*******************************************************************************
@@ -2362,84 +2425,84 @@ static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web)
     return true;
 }
 
-static void DEBUG_PrintStoredArgs(struct WebServer *Web)
-{
-    char *StorageStart;
-    int r;
-    int rr;
-    char c;
-    char *Write;
-    int g;
-
-    StorageStart=Web->ArgsStorage;
-
-    printf("\r\nARGS DUMP:\r\n");
-    for(r=0;r<16*4;r++)
-    {
-        printf("%02X ",(unsigned char)StorageStart[r]);
-        if((r&15)==15)
-        {
-            for(rr=0;rr<16;rr++)
-            {
-                c=StorageStart[r-15+rr];
-                printf("%c",c<32||c>127?'.':c);
-            }
-            printf("\r\n");
-        }
-    }
-
-    Write=StorageStart;
-    if(Web->PageProp.Gets!=NULL)
-    {
-        for(g=0;Web->PageProp.Gets[g]!=0;g++)
-        {
-            if(*Write=='Y')
-            {
-                printf("GET %s=\"%s\"\r\n",Web->PageProp.Gets[g],Write+1);
-                while(*Write!=0)
-                    Write++;
-            }
-            else
-            {
-                printf("GET %s not found\r\n",Web->PageProp.Gets[g]);
-            }
-            Write++;
-        }
-    }
-
-    if(Web->PageProp.Cookies!=NULL)
-    {
-        for(g=0;Web->PageProp.Cookies[g]!=0;g++)
-        {
-            if(*Write=='Y')
-            {
-                printf("COOKIE %s=\"%s\"\r\n",Web->PageProp.Cookies[g],Write+1);
-                while(*Write!=0)
-                    Write++;
-            }
-            else
-            {
-                printf("COOKIE %s not found\r\n",Web->PageProp.Cookies[g]);
-            }
-            Write++;
-        }
-    }
-
-    if(Web->PageProp.Posts!=NULL)
-    {
-        for(g=0;Web->PageProp.Posts[g]!=0;g++)
-        {
-            if(*Write=='Y')
-            {
-                printf("POST %s=\"%s\"\r\n",Web->PageProp.Posts[g],Write+1);
-                while(*Write!=0)
-                    Write++;
-            }
-            else
-            {
-                printf("POST %s not found\r\n",Web->PageProp.Posts[g]);
-            }
-            Write++;
-        }
-    }
-}
+//static void DEBUG_PrintStoredArgs(struct WebServer *Web)
+//{
+//    char *StorageStart;
+//    int r;
+//    int rr;
+//    char c;
+//    char *Write;
+//    int g;
+//
+//    StorageStart=Web->ArgsStorage;
+//
+//    printf("\r\nARGS DUMP:\r\n");
+//    for(r=0;r<16*4;r++)
+//    {
+//        printf("%02X ",(unsigned char)StorageStart[r]);
+//        if((r&15)==15)
+//        {
+//            for(rr=0;rr<16;rr++)
+//            {
+//                c=StorageStart[r-15+rr];
+//                printf("%c",c<32||c>127?'.':c);
+//            }
+//            printf("\r\n");
+//        }
+//    }
+//
+//    Write=StorageStart;
+//    if(Web->PageProp.Gets!=NULL)
+//    {
+//        for(g=0;Web->PageProp.Gets[g]!=0;g++)
+//        {
+//            if(*Write=='Y')
+//            {
+//                printf("GET %s=\"%s\"\r\n",Web->PageProp.Gets[g],Write+1);
+//                while(*Write!=0)
+//                    Write++;
+//            }
+//            else
+//            {
+//                printf("GET %s not found\r\n",Web->PageProp.Gets[g]);
+//            }
+//            Write++;
+//        }
+//    }
+//
+//    if(Web->PageProp.Cookies!=NULL)
+//    {
+//        for(g=0;Web->PageProp.Cookies[g]!=0;g++)
+//        {
+//            if(*Write=='Y')
+//            {
+//                printf("COOKIE %s=\"%s\"\r\n",Web->PageProp.Cookies[g],Write+1);
+//                while(*Write!=0)
+//                    Write++;
+//            }
+//            else
+//            {
+//                printf("COOKIE %s not found\r\n",Web->PageProp.Cookies[g]);
+//            }
+//            Write++;
+//        }
+//    }
+//
+//    if(Web->PageProp.Posts!=NULL)
+//    {
+//        for(g=0;Web->PageProp.Posts[g]!=0;g++)
+//        {
+//            if(*Write=='Y')
+//            {
+//                printf("POST %s=\"%s\"\r\n",Web->PageProp.Posts[g],Write+1);
+//                while(*Write!=0)
+//                    Write++;
+//            }
+//            else
+//            {
+//                printf("POST %s not found\r\n",Web->PageProp.Posts[g]);
+//            }
+//            Write++;
+//        }
+//    }
+//}
