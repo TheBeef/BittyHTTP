@@ -88,7 +88,9 @@ const char m_DevelopmentHTML[]=
     "<li><a href=\"/AutoDocs.html#WS_URLDecodeInPlace_WebServer.c\">WS_URLDecodeInPlace</a></li>\n"
     "<li><a href=\"/AutoDocs.html#WS_URLEncode_WebServer.c\">WS_URLEncode</a></li>\n"
     "<li><a href=\"/AutoDocs.html#WS_WriteChunk_WebServer.c\">WS_WriteChunk</a></li>\n"
+    "<li><a href=\"/AutoDocs.html#WS_WriteChunkStr_WebServer.c\">WS_WriteChunkStr</a></li>\n"
     "<li><a href=\"/AutoDocs.html#WS_WriteWhole_WebServer.c\">WS_WriteWhole</a></li>\n"
+    "<li><a href=\"/AutoDocs.html#WS_WriteWholeStr_WebServer.c\">WS_WriteWholeStr</a></li>\n"
 "</ul>"
 
 "<h1><span>3</span>Examples</h1>\n"
