@@ -48,6 +48,8 @@
 /***  GLOBAL VARIABLE DEFINITIONS      ***/
 
 /***  EXTERNAL FUNCTION PROTOTYPES     ***/
+void LoadTrackingCode(void);
+void FreeTrackingCode(void);
 void Start_WebPage(struct WebServer *Web,const char *PageTitle,e_PageType ActivePage);
 void End_WebPage(struct WebServer *Web);
 void Start_Head(struct WebServer *Web,const char *PageTitle);

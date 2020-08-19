@@ -35,6 +35,7 @@
 #include "Base/FileServer.h"
 #include "Common/Headers.h"
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 /*** DEFINES                  ***/
@@ -48,6 +49,9 @@ struct MainMenuEntry
     const char *Link;
     e_PageType PageID;
 };
+
+char *m_TrackingCodeStr;
+int m_TrackingCodeSize;
 
 /*** FUNCTION PROTOTYPES      ***/
 static void Output_Crumb(struct WebServer *Web,e_PageType PageID,bool First);
@@ -66,21 +70,6 @@ struct MainMenuEntry m_MainMenu[]=
 };
 
 const char m_PageEnd[]=
-"<!-- Matomo -->\n"
-"<script type=\"text/javascript\">\n"
-"  var _paq = window._paq || [];\n"
-"  /* tracker methods like \"setCustomDimension\" should be called before \"trackPageView\" */\n"
-"  _paq.push(['trackPageView']);\n"
-"  _paq.push(['enableLinkTracking']);\n"
-"  (function() {\n"
-"    var u=\"//matomo.bittyhttp.com/\";\n"
-"    _paq.push(['setTrackerUrl', u+'matomo.php']);\n"
-"    _paq.push(['setSiteId', '1']);\n"
-"    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];\n"
-"    g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);\n"
-"  })();\n"
-"</script>\n"
-"<!-- End Matomo Code -->\n"
 "</head>\n";
 
 void Start_Head(struct WebServer *Web,const char *PageTitle)
@@ -107,6 +96,8 @@ void Start_Head(struct WebServer *Web,const char *PageTitle)
 
 void End_Head(struct WebServer *Web)
 {
+    if(m_TrackingCodeStr!=NULL)
+        WS_WriteChunk(Web,m_TrackingCodeStr,m_TrackingCodeSize);
     WS_WriteChunk(Web,m_PageEnd,sizeof(m_PageEnd)-1);
 }
 
@@ -213,5 +204,37 @@ void Start_WebPage(struct WebServer *Web,const char *PageTitle,e_PageType Active
 void End_WebPage(struct WebServer *Web)
 {
     End_Body(Web);
+}
+
+void LoadTrackingCode(void)
+{
+    FILE *in;
+
+    in=fopen("TrackingCode.txt","rb");
+    if(in==NULL)
+        return;
+
+    fseek(in,0,SEEK_END);
+    m_TrackingCodeSize=ftell(in);
+    fseek(in,0,SEEK_SET);
+
+    m_TrackingCodeStr=malloc(m_TrackingCodeSize+1);
+    if(m_TrackingCodeStr==NULL)
+        return;
+
+    if(fread(m_TrackingCodeStr,m_TrackingCodeSize,1,in)!=1)
+    {
+        free(m_TrackingCodeStr);
+        fclose(in);
+        m_TrackingCodeStr=NULL;
+        return;
+    }
+    m_TrackingCodeStr[m_TrackingCodeSize]=0;
+    fclose(in);
+}
+
+void FreeTrackingCode(void)
+{
+    free(m_TrackingCodeStr);
 }
 

@@ -31,6 +31,7 @@
  ******************************************************************************/
 
 /*** HEADER FILES TO INCLUDE  ***/
+#include "Common/Headers.h"
 #include "main.h"
 #include "WebServer.h"
 #include <stdlib.h>
@@ -62,6 +63,8 @@ int main(void)
 
     SocketsCon_InitSocketConSystem();
     WS_Init();
+
+    LoadTrackingCode();
 
     if(!WS_Start(3000))
     {
@@ -101,6 +104,7 @@ int main(void)
 
     WS_Shutdown();
     SocketsCon_ShutdownSocketConSystem();
+    FreeTrackingCode();
 
     return 0;
 }
