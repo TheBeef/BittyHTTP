@@ -48,6 +48,7 @@
 #include <stdio.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
+#include <signal.h>
 
 /*** DEFINES                  ***/
 #define CONNECT_TIMEOUT 10000   // How long do we wait before giving up on a connect() (ms)
@@ -113,6 +114,10 @@ static uint32_t SocketsCon_Get1mSecCounter(void)
  ******************************************************************************/
 bool SocketsCon_InitSocketConSystem(void)
 {
+    /* Disable the the signal on send() to a closed connection (return an
+       error code instead) */
+    signal(SIGPIPE, SIG_IGN);
+
     return true;
 }
 
