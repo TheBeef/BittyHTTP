@@ -49,6 +49,11 @@ const char m_LinksHTML[]=
 "<table>\n"
 
 "<tr>\n"
+"<td><a href='https://github.com/TheBeef/bittyhttp'>GitHub Project Page</a></td>\n"
+"<td>The main project page for "PRODUCTNAME".</td>\n"
+"</tr>\n"
+
+"<tr>\n"
 "<td><a href='https://www.gnu.org/software/libmicrohttpd/'>GNU Libmicrohttpd</a></td>\n"
 "<td>A small C library for adding a http server to an existing application.  "
 "It includes a list of other embedded HTTP server libraries at the bottom of "
@@ -56,8 +61,10 @@ const char m_LinksHTML[]=
 "</tr>\n"
 
 "<tr>\n"
-"<td><a href='https://github.com/TheBeef/bittyhttp'>GitHub Project Page</a></td>\n"
-"<td>The main project page for "PRODUCTNAME".</td>\n"
+"<td><a href='http://webcprecompiler.com'>WebC</a></td>\n"
+"<td>This is another project for making web pages in C.  It uses php like "
+"escape tags to let you write C code and HTML in the same source.  It "
+"uses "PRODUCTNAME" as an example web server.</td>\n"
 "</tr>\n"
 
 "</table>\n"

@@ -54,6 +54,17 @@
 //    },
 //};
 
+static struct ReleaseNote m_Notes_1_2[]=
+{
+    {
+        "Updated example BSD sockets to ignore SIGPIPE",
+         "The example BSD sockets connector was updated to ignore the"
+         " SIGPIPE and return an error instead.  This is needed because"
+         " if you do not ignore the signal and the web browser closes the"
+         " socket the program just exits (the default SIGPIPE handler)."
+    },
+};
+
 static struct ReleaseNote m_Notes_1_1[]=
 {
     {
@@ -80,6 +91,7 @@ const struct ReleaseInfo m_ReleaseNotes[]=
 {
     {"1.0","08 Sep 2019","First Release",m_Notes_1_0,sizeof(m_Notes_1_0)/sizeof(struct ReleaseNote)},
     {"1.1","29 Oct 2019","New C String Functions",m_Notes_1_1,sizeof(m_Notes_1_1)/sizeof(struct ReleaseNote)},
+    {"1.2","19 Aug 2020","Ignored SIGPIPE",m_Notes_1_2,sizeof(m_Notes_1_2)/sizeof(struct ReleaseNote)},
 };
 
 const unsigned long m_ReleaseNoteCount=sizeof(m_ReleaseNotes)/sizeof(struct ReleaseInfo);
