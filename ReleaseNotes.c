@@ -54,6 +54,17 @@
 //    },
 //};
 
+static struct ReleaseNote m_Notes_1_3[]=
+{
+    {
+        "Fixed similar POST vars not processing",
+         "When 2 (or more) POST vars starts with the same chars"
+         " (Ie \"Login\" and \"LoginPassword\") the parser was not picking up"
+         " the second one and messes up other POST vars that follow it.  This"
+         " has been fixed"
+    },
+};
+
 static struct ReleaseNote m_Notes_1_2[]=
 {
     {
@@ -92,6 +103,7 @@ const struct ReleaseInfo m_ReleaseNotes[]=
     {"1.0","08 Sep 2019","First Release",m_Notes_1_0,sizeof(m_Notes_1_0)/sizeof(struct ReleaseNote)},
     {"1.1","29 Oct 2019","New C String Functions",m_Notes_1_1,sizeof(m_Notes_1_1)/sizeof(struct ReleaseNote)},
     {"1.2","19 Aug 2020","Ignored SIGPIPE",m_Notes_1_2,sizeof(m_Notes_1_2)/sizeof(struct ReleaseNote)},
+    {"1.3","31 May 2021","Fixed POST bug",m_Notes_1_3,sizeof(m_Notes_1_3)/sizeof(struct ReleaseNote)},
 };
 
 const unsigned long m_ReleaseNoteCount=sizeof(m_ReleaseNotes)/sizeof(struct ReleaseInfo);
