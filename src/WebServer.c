@@ -2264,6 +2264,7 @@ static void WS_StartProcessingPOSTVar(struct WebServer *Web)
     char *Write;
     char *StorageStart;
     int p;
+    unsigned int Len;
 
     StorageStart=Web->ArgsStorage;
     Write=StorageStart;
@@ -2289,8 +2290,9 @@ static void WS_StartProcessingPOSTVar(struct WebServer *Web)
         for(p=0;Web->PageProp.Posts[p]!=0;p++)
         {
             /* See if this arg is in the args we had sent in */
-            if(strncmp(Web->LineBuff,Web->PageProp.Posts[p],
-                    strlen(Web->LineBuff))==0)
+            Len=strlen(Web->LineBuff);
+            if(strncmp(Web->LineBuff,Web->PageProp.Posts[p],Len)==0 &&
+                    Web->PageProp.Posts[p][Len]==0)
             {
                 /* Found this arg */
                 *Write++='Y';
