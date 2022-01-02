@@ -2,7 +2,7 @@
  * FILENAME: WebServer.c
  *
  * PROJECT:
- *    Bitty HTTP 1.1
+ *    Bitty HTTP 1.4
  *
  * FILE DESCRIPTION:
  *    This file has the main web server in it.  You need to copy this file
@@ -120,6 +120,11 @@ void WS_Init(void)
  ******************************************************************************/
 void WS_Shutdown(void)
 {
+    int r;
+
+    SocketsCon_Close(&m_ListeningSocket);
+    for(r=0;r<WS_OPT_MAX_CONNECTIONS;r++)
+        SocketsCon_Close(&m_WebServers[r].Con);
 }
 
 /*******************************************************************************
@@ -391,14 +396,6 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
             break;
             case e_WebServerState_Body:
                 /* We need to read in the whole body before moving on */
-
-//{
-//int r;
-//printf("\33[1;31m");
-//for(r=0;r<BytesLeft;r++)
-//    printf("%c",ReadPoint[r]);
-//printf("\r\n\33[0m");
-//}
                 if(Web->Req==e_ReqType_Post)
                 {
                     while(BytesLeft>0)

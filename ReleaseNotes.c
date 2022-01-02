@@ -54,6 +54,18 @@
 //    },
 //};
 
+static struct ReleaseNote m_Notes_1_4[]=
+{
+    {
+        "Fixed WS_Shutdown() function",
+         "The shutdown function didn't do anything.  This wasn't a problem as"
+         " long as you quit your program after, but if you shutdown and then"
+         " wanted to restart it had a problem.  The old sockets where still"
+         " open and binded.\n"
+         "Added code to close all the sockets."
+    },
+};
+
 static struct ReleaseNote m_Notes_1_3[]=
 {
     {
@@ -104,6 +116,7 @@ const struct ReleaseInfo m_ReleaseNotes[]=
     {"1.1","29 Oct 2019","New C String Functions",m_Notes_1_1,sizeof(m_Notes_1_1)/sizeof(struct ReleaseNote)},
     {"1.2","19 Aug 2020","Ignored SIGPIPE",m_Notes_1_2,sizeof(m_Notes_1_2)/sizeof(struct ReleaseNote)},
     {"1.3","31 May 2021","Fixed POST bug",m_Notes_1_3,sizeof(m_Notes_1_3)/sizeof(struct ReleaseNote)},
+    {"1.4","02 Jan 2022","Fixed WS_Shutdown()",m_Notes_1_4,sizeof(m_Notes_1_4)/sizeof(struct ReleaseNote)},
 };
 
 const unsigned long m_ReleaseNoteCount=sizeof(m_ReleaseNotes)/sizeof(struct ReleaseInfo);

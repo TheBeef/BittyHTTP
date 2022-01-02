@@ -100,7 +100,7 @@ const char m_AboutHTML[]=
 "supports GET,POST, and Cookies).</p>\n"
 
 "<p>I wanted to just write my own because \"how hard could it be\", but my "
-"manager insisted it was \"too hard\" and told me to stick with Microchip "
+"manager insisted it was \"too hard\" and told me to stick with the Microchip "
 "one. After much hacking to force it to work with dynamic content (it was "
 "really designed for mostly static content) I got it working.</p>\n"
 
