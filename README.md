@@ -10,7 +10,7 @@ Bitty HTTP is licensed under the MIT License (see License.txt). This means you a
 
 You can access the web site for Bitty HTTP at http://bittyhttp.com and the documentation at http://bittyhttp.com/Development.html
 
-The web site is running under Bitty HTTP as am example of what Bitty HTTP can do.
+The web site is running under Bitty HTTP as an example of what Bitty HTTP can do.
 
 # Build and run
 
