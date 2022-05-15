@@ -67,6 +67,14 @@ const char m_LinksHTML[]=
 "uses "PRODUCTNAME" as an example web server.</td>\n"
 "</tr>\n"
 
+"<tr>\n"
+"<td><a href='http://makemymakefile.com'>Make My Makefile</a></td>\n"
+"<td>A web site for generate a makefile for you.  You answer a few \n"
+"questions hit the generate button and a good functional makefile.  \n"
+"You then can just add new files directly to the makefile without needing \n"
+"regenerate it.</td>\n"
+"</tr>\n"
+
 "</table>\n"
 "";
 
