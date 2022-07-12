@@ -54,6 +54,15 @@
 //    },
 //};
 
+static struct ReleaseNote m_Notes_Next[]=
+{
+    {
+         "Fixed warning in WebServer.c",
+         "There was a warning about %ld not matching strlen() return value."
+         " Changed to %zd for the correct printf() type"
+    },
+};
+
 static struct ReleaseNote m_Notes_1_4[]=
 {
     {

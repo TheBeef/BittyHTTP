@@ -873,7 +873,7 @@ static void WS_StartReply(struct WebServer *Web)
 
     if(Web->ReplyStatus!=e_ReplyStatus_Ok && !Web->UserSetReplyStatus)
     {
-        sprintf(buff,"Content-Length: %ld\r\n",strlen(Msg));
+        sprintf(buff,"Content-Length: %zd\r\n",strlen(Msg));
         SocketsCon_Write(&Web->Con,buff,strlen(buff));
         SocketsCon_Write(&Web->Con,"\r\n",2);
         SocketsCon_Write(&Web->Con,Msg,strlen(Msg));
