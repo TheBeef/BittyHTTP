@@ -36,5 +36,10 @@ So to compile a basic server:
 
 is all you need.
 
+### Windows
+Under Windows you will also need to include a -lws2_32 on the end of the line (and have GCC installed and in the path).
+
+`gcc main.c SocketsCon.c FileServer.c WebServer.c -o example.exe -lws2_32`
+
 ### Examples
 The examples include a build.sh (and build.bat for Windows) for building.  Just cd into the directory and run it (note for Windows you must have a Windows gcc installed in the path (mingw)
