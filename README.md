@@ -37,9 +37,19 @@ So to compile a basic server:
 is all you need.
 
 ### Windows
-Under Windows you will also need to include a -lws2_32 on the end of the line (and have GCC installed and in the path).
+For Windows a simple 1 line bat file is included (for the examples).
+
+The core is all in one file named `WebServer.c`.  The sockets wrapper is in `SocketsConWin.c`.  Most of the examples include a standard `main.c` and a `FileServer.c` that handles what files will be served.
+
+You will also need to install a GCC version for window (mingw for example) and have it in your path.
+
+So to compile a basic server under Windows:
 
 `gcc main.c SocketsCon.c FileServer.c WebServer.c -o example.exe -lws2_32`
+
+is all you need.
+
+The examples should work under Visual Studio however I have not tried it as I don't really use Windows.
 
 ### Examples
 The examples include a build.sh (and build.bat for Windows) for building.  Just cd into the directory and run it (note for Windows you must have a Windows gcc installed in the path (mingw)
