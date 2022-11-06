@@ -61,6 +61,14 @@ static struct ReleaseNote m_Notes_Next[]=
          "There was a warning about %ld not matching strlen() return value."
          " Changed to %zd for the correct printf() type"
     },
+    {
+         "Added support for building for Windows",
+         "A build.bat file has been added to build the hello world example"
+         " under Windows.  Another set of files (SocketsConWin.c and .h) have"
+         " been added to connect to WinSock.\n"
+         "Work still needs to be done to update all the examples to have a"
+         " build.bat file."
+    },
 };
 
 static struct ReleaseNote m_Notes_1_4[]=
