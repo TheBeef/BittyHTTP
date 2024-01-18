@@ -18,7 +18,10 @@ The web site is running under Bitty HTTP as an example of what Bitty HTTP can do
 
 Bitty HTTP is written in C and only requires the C standard library to compile and run.
 
-**HOWEVER** you must provide functions to access your sockets.  A Posix/Berkeley sockets example is provided (as well as a WinSock example).  Therefor you must be able to compile on a Posix system with Berkeley sockets.
+**HOWEVER** Bitty HTTP does not use standard sockets calls, instead it calls functions that you provide that will
+access your sockets.  This allows you to use non standard sockets.
+
+Examples of using Posix/Berkeley and Winsock are provided (as src/SocketsCon.c for Posix, and src/SocketsConWin.c for Winsock).
 
 You must also have GCC or some other C99 compiler.
 
@@ -30,7 +33,7 @@ There aren't any makefiles provided, but instead simple 1 line scripts (for the 
 
 The core is all in one file named `WebServer.c`.  The sockets wrapper is in `SocketsCon.c`.  Most of the examples include a standard `main.c` and a `FileServer.c` that handles what files will be served.
 
-So to compile a basic server:
+So to compile a basic server (where you have copied the needed files into your own directory):
 
 `gcc main.c SocketsCon.c FileServer.c WebServer.c -o example.exe`
 
