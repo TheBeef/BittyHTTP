@@ -1821,7 +1821,6 @@ bool WS_POSTCopy(struct WebServer *Web,const char *Arg,char *Dest,int MaxDest)
 static bool WS_CopyHelper(const char *Data,char *Dest,int MaxDest)
 {
     unsigned int DataLen;
-    unsigned int MaxLen;
     unsigned int CopyLen;
 
     *Dest=0;
@@ -3367,10 +3366,7 @@ static void WS_ProcessFormDataDisposition(struct WebServer *Web)
  ******************************************************************************/
 static void WS_ProcessFormDataContentType(struct WebServer *Web)
 {
-    char *Pos;
     char *Value;
-    char *End;
-    int p;
 
     /* Find the start of the type */
     Value=&Web->LineBuff[14];

@@ -462,3 +462,16 @@ void SendDiskFile(struct WebServer *Web,const char *Filename,bool Binary)
 
     fclose(in);
 }
+
+/* Stub functions because we can't actually support uploading files */
+bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,
+        unsigned long ChunkOffset,unsigned long ChunkDataSize)
+{
+    return true;
+}
+
+void FS_POSTGetFileMetadata(struct WebServer *Web,uintptr_t FileID,
+        e_POSTMetaDataType Meta,const char *Metadata)
+{
+}
+

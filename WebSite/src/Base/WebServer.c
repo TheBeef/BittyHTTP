@@ -2,7 +2,7 @@
  * FILENAME: WebServer.c
  *
  * PROJECT:
- *    Bitty HTTP 1.0
+ *    Bitty HTTP 1.4
  *
  * FILE DESCRIPTION:
  *    This file has the main web server in it.  You need to copy this file
@@ -61,8 +61,16 @@ static const char *WS_FindArgInStorage(char *Pos,const char *Arg,
         const char **ArgsList);
 static void WS_StartReply(struct WebServer *Web);
 static void WS_StartProcessingPOSTVar(struct WebServer *Web);
-static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web);
+static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web,bool URLEncoded);
 static void WS_InsertCopy(char *Dest,char *DestEnd,const char *Src,int CopyLen);
+static bool WS_CopyHelper(const char *Data,char *Dest,int MaxDest);
+static void WS_ProcessPOSTURLencodedBody(struct WebServer *Web,char *ReadPoint,int BytesLeft);
+static void WS_ProcessPOSTFormDataBody(struct WebServer *Web,char *ReadPoint,int BytesLeft);
+static char WS_GetFormDataDelimiterChar(struct WebServer *Web,int Pos);
+static void WS_AddFormDataByte(struct WebServer *Web,char Byte);
+static void WS_FlushFormDataVar(struct WebServer *Web,bool EndOfVar);
+static void WS_ProcessFormDataDisposition(struct WebServer *Web);
+static void WS_ProcessFormDataContentType(struct WebServer *Web);
 //static void DEBUG_PrintStoredArgs(struct WebServer *Web);
 
 /*** VARIABLE DEFINITIONS     ***/
@@ -120,6 +128,11 @@ void WS_Init(void)
  ******************************************************************************/
 void WS_Shutdown(void)
 {
+    int r;
+
+    SocketsCon_Close(&m_ListeningSocket);
+    for(r=0;r<WS_OPT_MAX_CONNECTIONS;r++)
+        SocketsCon_Close(&m_WebServers[r].Con);
 }
 
 /*******************************************************************************
@@ -182,12 +195,18 @@ static void WS_ResetWebServer(struct WebServer *Web)
     Web->PageProp.Cookies=NULL;
     Web->PageProp.Gets=NULL;
     Web->PageProp.Posts=NULL;
+    Web->PageProp.FilePosts=NULL;
     Web->ReplyStarted=false;
     Web->LastReadTime=ReadElapsedClock();
     Web->BodySize=0;
     Web->PostState=e_WSPostState_GettingKey;
+    Web->EncType=e_EncType_URLencoded;
     Web->PostWritePos=NULL;
     Web->PostEndOfStorage=NULL;
+    Web->PostBoundaryPos=0;
+    Web->PostVarIsFile=false;
+    Web->PostFileOffset=0;
+    Web->POSTBoundaryStr[0]=0;
 }
 
 /*******************************************************************************
@@ -253,7 +272,6 @@ void WS_Tick(void)
                     sizeof(ReadBuff));
             if(Bytes==0)
             {
-
                 if(ReadElapsedClock()-m_WebServers[con].LastReadTime>=
                         WS_SECONDS_UNTIL_CONNECTION_RELEASE)
                 {
@@ -306,6 +324,7 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
     int BytesUsed;
     char *ReadPoint;
     int BytesLeft;
+    bool EatRestOfBody;
 
     ReadPoint=ReadBuff;
     BytesLeft=Bytes;
@@ -335,6 +354,7 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
                 BytesLeft-=BytesUsed;
 
                 /* We found the end */
+printf("================ %s\n",Web->LineBuff);
                 if(strncmp(Web->LineBuff,"GET ",4)==0)
                 {
                     Web->Req=e_ReqType_Get;
@@ -351,6 +371,9 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
                 else if(strncmp(Web->LineBuff,"POST ",5)==0)
                 {
                     Web->Req=e_ReqType_Post;
+                    /* Default to URL encoded */
+                    Web->EncType=e_EncType_URLencoded;
+
                     WS_ProcessURI(Web);
                     if(FS_GetFileProperties(&Web->LineBuff[5],&Web->PageProp))
                     {
@@ -391,115 +414,29 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
             break;
             case e_WebServerState_Body:
                 /* We need to read in the whole body before moving on */
+                EatRestOfBody=false;
 
-//{
-//int r;
-//printf("\33[1;31m");
-//for(r=0;r<BytesLeft;r++)
-//    printf("%c",ReadPoint[r]);
-//printf("\r\n\33[0m");
-//}
                 if(Web->Req==e_ReqType_Post)
                 {
-                    while(BytesLeft>0)
+                    if(Web->EncType==e_EncType_URLencoded)
                     {
-                        switch(Web->PostState)
-                        {
-                            case e_WSPostState_GettingKey:
-                                if(*ReadPoint=='=')
-                                {
-                                    /* We are at the end of the name of the
-                                       POST var.  See if we can find it in
-                                       the list of POST vars we are
-                                       expecting. */
-                                    Web->LineBuff[Web->LineBuffPos++]=0;
-
-                                    /* Decode the key */
-                                    WS_URLDecodeInPlace(Web->LineBuff);
-
-                                    /* Setup for starting to store this var */
-                                    WS_StartProcessingPOSTVar(Web);
-
-                                    Web->PostState=e_WSPostState_GettingValue;
-                                    Web->LineBuffPos=0;
-                                    break;
-                                }
-                                Web->LineBuff[Web->LineBuffPos++]=*ReadPoint;
-                                if(Web->LineBuffPos>=sizeof(Web->LineBuff)-1)
-                                {
-                                    /* Out of space */
-                                    Web->ReplyStatus=
-                                            e_ReplyStatus_InsufficientStorage;
-                                    Web->PostState=e_WSPostState_Error;
-                                    break;
-                                }
-                            break;
-                            case e_WSPostState_GettingValue:
-                                if(*ReadPoint=='&')
-                                {
-                                    /* Ok, this is the end of the var, finish
-                                       copying */
-                                    if(!WS_CopyLineBuffer2POSTVar(Web))
-                                    {
-                                        Web->PostState=e_WSPostState_Error;
-                                        break;
-                                    }
-
-                                    Web->PostState=e_WSPostState_GettingKey;
-                                }
-                                else
-                                {
-                                    /* Store as much as we can in the
-                                       Line Buffer.  When it fills we copy it
-                                       over to the arg storage. */
-                                    Web->LineBuff[Web->LineBuffPos++]=
-                                            *ReadPoint;
-                                    if(Web->LineBuffPos>=sizeof(Web->LineBuff)-1)
-                                    {
-                                        /* Line buffer filled.  Empty it */
-                                        if(!WS_CopyLineBuffer2POSTVar(Web))
-                                        {
-                                            Web->PostState=e_WSPostState_Error;
-                                            break;
-                                        }
-                                    }
-                                }
-                            break;
-                            case e_WSPostState_Error:
-                                /* Skip until we get to the next var */
-                                if(*ReadPoint=='&')
-                                {
-                                    Web->PostState=e_WSPostState_GettingKey;
-                                    Web->LineBuffPos=0; // Setup for next var
-                                }
-                            break;
-                            case e_WSPostStateMAX:
-                            break;
-                        }
-
-                        /* Consume this char */
-                        ReadPoint++;
-                        BytesLeft--;
-                        Web->BodySize--;
-                        if(Web->BodySize==0)
-                        {
-                            /* Ran out of body */
-                            if(Web->PostState==e_WSPostState_GettingValue)
-                            {
-                                /* Finish processing the POST var */
-                                if(!WS_CopyLineBuffer2POSTVar(Web))
-                                {
-                                    Web->PostState=e_WSPostState_Error;
-                                    break;
-                                }
-
-                                Web->PostState=e_WSPostState_GettingKey;
-                                Web->LineBuffPos=0; // Setup for next var
-                            }
-                        }
+                        WS_ProcessPOSTURLencodedBody(Web,ReadPoint,BytesLeft);
+                    }
+                    else if(Web->EncType==e_EncType_FormData)
+                    {
+                        WS_ProcessPOSTFormDataBody(Web,ReadPoint,BytesLeft);
+                    }
+                    else
+                    {
+                        EatRestOfBody=true;
                     }
                 }
                 else
+                {
+                    EatRestOfBody=true;
+                }
+
+                if(EatRestOfBody)
                 {
                     if(Web->BodySize<BytesLeft)
                     {
@@ -536,6 +473,134 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
             break;
             case e_WebServerStateMAX:
             break;
+        }
+    }
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_ProcessPOSTURLencodedBody
+ *
+ * SYNOPSIS:
+ *    static void WS_ProcessPOSTURLencodedBody(struct WebServer *Web,
+ *              char *ReadPoint,int BytesLeft);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    ReadPoint [I] -- The point in the body block to read from
+ *    BytesLeft [I] -- The number of bytes left in this block to work through
+ *
+ * FUNCTION:
+ *    This is a helper function for WS_RunServer() that processes the body
+ *    when we have a POST request in URL encoded mode.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    
+ ******************************************************************************/
+static void WS_ProcessPOSTURLencodedBody(struct WebServer *Web,char *ReadPoint,
+        int BytesLeft)
+{
+    while(BytesLeft>0)
+    {
+        switch(Web->PostState)
+        {
+            case e_WSPostState_GettingKey:
+                if(*ReadPoint=='=')
+                {
+                    /* We are at the end of the name of the
+                       POST var.  See if we can find it in
+                       the list of POST vars we are
+                       expecting. */
+                    Web->LineBuff[Web->LineBuffPos++]=0;
+
+                    /* Decode the key */
+                    WS_URLDecodeInPlace(Web->LineBuff);
+
+                    /* Setup for starting to store this var */
+                    WS_StartProcessingPOSTVar(Web);
+
+                    Web->PostState=e_WSPostState_GettingValue;
+                    Web->LineBuffPos=0;
+                    break;
+                }
+                Web->LineBuff[Web->LineBuffPos++]=*ReadPoint;
+                if(Web->LineBuffPos>=sizeof(Web->LineBuff)-1)
+                {
+                    /* Out of space */
+                    Web->ReplyStatus=
+                            e_ReplyStatus_InsufficientStorage;
+                    Web->PostState=e_WSPostState_Error;
+                    break;
+                }
+            break;
+            case e_WSPostState_GettingValue:
+                if(*ReadPoint=='&')
+                {
+                    /* Ok, this is the end of the var, finish
+                       copying */
+                    if(!WS_CopyLineBuffer2POSTVar(Web,true))
+                    {
+                        Web->PostState=e_WSPostState_Error;
+                        break;
+                    }
+
+                    Web->PostState=e_WSPostState_GettingKey;
+                }
+                else
+                {
+                    /* Store as much as we can in the
+                       Line Buffer.  When it fills we copy it
+                       over to the arg storage. */
+                    Web->LineBuff[Web->LineBuffPos++]=
+                            *ReadPoint;
+                    if(Web->LineBuffPos>=sizeof(Web->LineBuff)-1)
+                    {
+                        /* Line buffer filled.  Empty it */
+                        if(!WS_CopyLineBuffer2POSTVar(Web,true))
+                        {
+                            Web->PostState=e_WSPostState_Error;
+                            break;
+                        }
+                    }
+                }
+            break;
+            case e_WSPostState_Error:
+                /* Skip until we get to the next var */
+                if(*ReadPoint=='&')
+                {
+                    Web->PostState=e_WSPostState_GettingKey;
+                    Web->LineBuffPos=0; // Setup for next var
+                }
+            break;
+            case e_WSPostState_FormData_Header:
+            case e_WSPostState_FormData_Data:
+            case e_WSPostStateMAX:
+            default:
+            break;
+        }
+
+        /* Consume this char */
+        ReadPoint++;
+        BytesLeft--;
+        Web->BodySize--;
+        if(Web->BodySize==0)
+        {
+            /* Ran out of body */
+            if(Web->PostState==e_WSPostState_GettingValue)
+            {
+                /* Finish processing the POST var */
+                if(!WS_CopyLineBuffer2POSTVar(Web,true))
+                {
+                    Web->PostState=e_WSPostState_Error;
+                    break;
+                }
+
+                Web->PostState=e_WSPostState_GettingKey;
+                Web->LineBuffPos=0; // Setup for next var
+            }
         }
     }
 }
@@ -695,6 +760,9 @@ static void WS_ProcessHeader(struct WebServer *Web)
     char *Pos;
     bool Weak;
 
+printf("SEE:%s\n",Web->LineBuff);
+//Content-Type: application/x-www-form-urlencoded
+
     if(strncmp(Web->LineBuff,"If-None-Match:",14)==0)
     {
         /* Ok, check the ETag */
@@ -744,17 +812,90 @@ static void WS_ProcessHeader(struct WebServer *Web)
                 ETag++;
         }
     }
-    if(strncmp(Web->LineBuff,"Cookie:",7)==0)
+    else if(strncmp(Web->LineBuff,"Cookie:",7)==0)
     {
         /* We have a cookie */
         WS_ProcessCookieVars(Web);
     }
-    if(strncmp(Web->LineBuff,"Content-Length:",15)==0)
+    else if(strncmp(Web->LineBuff,"Content-Length:",15)==0)
     {
         Pos=&Web->LineBuff[15];
-        if(*Pos==' ')
+        while(*Pos==' ')
             Pos++;
         Web->BodySize=strtol(Pos,NULL,10);
+    }
+    else if(strncmp(Web->LineBuff,"Content-Type:",13)==0)
+    {
+        Pos=&Web->LineBuff[13];
+        while(*Pos==' ')
+            Pos++;
+        if(strncmp(Pos,"application/x-www-form-urlencoded",33)==0)
+        {
+            Web->EncType=e_EncType_URLencoded;
+        }
+        else if(strncmp(Pos,"multipart/form-data",19)==0)
+        {
+            Web->EncType=e_EncType_FormData;
+            Web->PostState=e_WSPostState_FormData_First;
+
+            Pos+=19;
+
+            /* Ok, we need the boundary */
+            while(*Pos!=';' && *Pos!=0)
+                Pos++;
+            if(*Pos==0)
+            {
+                /* boundary missing */
+                Web->ReplyStatus=e_ReplyStatus_BadRequest;
+                return;
+            }
+            Pos++;  // Move past the ;
+            while(*Pos==' ')
+                Pos++;
+            if(strncmp(Pos,"boundary=",9)==0)
+            {
+                Pos+=9;
+                while(*Pos==' ')
+                    Pos++;
+                if(*Pos=='\"')
+                {
+                    /* It's in quotes */
+                    Pos++;
+                    End=Pos;
+                    while(*End!='\"' && *End!=0)
+                        End++;
+                    if(*End==0)
+                    {
+                        /* end quote missing */
+                        Web->ReplyStatus=e_ReplyStatus_BadRequest;
+                        return;
+                    }
+                    *End=0;
+                }
+                else
+                {
+                    /* Just use until the end */
+                    End=Pos;
+                    while(*End!=0)
+                        End++;
+                }
+                if(strlen(Pos)>=sizeof(Web->POSTBoundaryStr))
+                {
+                    /* Won't fit */
+                    Web->ReplyStatus=e_ReplyStatus_BadRequest;
+                    return;
+                }
+                strcpy(Web->POSTBoundaryStr,Pos);
+                
+            }
+            else
+            {
+                /* boundary missing */
+                Web->ReplyStatus=e_ReplyStatus_BadRequest;
+                return;
+            }
+//Content-Type: multipart/form-data; boundary=---------------------------9051914041544843365972754266
+        }
     }
 }
 
@@ -876,7 +1017,7 @@ static void WS_StartReply(struct WebServer *Web)
 
     if(Web->ReplyStatus!=e_ReplyStatus_Ok && !Web->UserSetReplyStatus)
     {
-        sprintf(buff,"Content-Length: %ld\r\n",strlen(Msg));
+        sprintf(buff,"Content-Length: %zd\r\n",strlen(Msg));
         SocketsCon_Write(&Web->Con,buff,strlen(buff));
         SocketsCon_Write(&Web->Con,"\r\n",2);
         SocketsCon_Write(&Web->Con,Msg,strlen(Msg));
@@ -987,7 +1128,7 @@ static void WS_SendResponse(struct WebServer *Web)
  *    NONE
  *
  * SEE ALSO:
- *    WS_Start(), WS_WriteChunk()
+ *    WS_Start(), WS_WriteWholeStr(), WS_WriteChunk()
  ******************************************************************************/
 void WS_WriteWhole(struct WebServer *Web,const char *Buffer,int Len)
 {
@@ -1036,7 +1177,7 @@ void WS_WriteWhole(struct WebServer *Web,const char *Buffer,int Len)
  *    NONE
  *
  * SEE ALSO:
- *    
+ *    WS_WriteChunkStr(), WS_WriteWhole()
  ******************************************************************************/
 void WS_WriteChunk(struct WebServer *Web,const char *Buffer,int Len)
 {
@@ -1531,6 +1672,173 @@ const char *WS_POST(struct WebServer *Web,const char *Arg)
     Pos=WS_SkipStorageArgs(Pos,Web->PageProp.Cookies);
 
     return WS_FindArgInStorage(Pos,Arg,Web->PageProp.Posts);
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_GETCopy
+ *
+ * SYNOPSIS:
+ *    bool WS_GETCopy(struct WebServer *Web,const char *Arg,
+ *          char *Dest,int MaxDest);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    Arg [I] -- The GET argument to search for an return
+ *    Dest [I] -- The buffer to copy the data into
+ *    MaxDest [I] -- The size of 'Dest'.
+ *
+ * FUNCTION:
+ *    This function gets a GET arg from the request and returns it.
+ *
+ *    You must place all the GET args you are going to be using (or could want
+ *    to use) in the Web->PageProp->Gets[] array for the system to be able
+ *    read a GET arg.
+ *
+ *    This version copies the var into a buffer instead of just returning
+ *    a pointer to the data.  It will copy up to 'MaxDest'-1 bytes, and will
+ *    always made the string \0 terminated.
+ *
+ * RETURNS:
+ *    true -- We where able to find the var and copy it
+ *    false -- We wheren't able to find the var or the buffer wasn't big enough.
+ *             The data was still copied into the buffer and clipped at
+ *             'MaxDest'.  If it was not found then 'Dest' will be set to
+ *             *Dest='\0';
+ *
+ * SEE ALSO:
+ *    WS_Start(), WS_COOKIE(), WS_POST()
+ ******************************************************************************/
+bool WS_GETCopy(struct WebServer *Web,const char *Arg,char *Dest,int MaxDest)
+{
+    return WS_CopyHelper(WS_GET(Web,Arg),Dest,MaxDest);
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_COOKIECopy
+ *
+ * SYNOPSIS:
+ *    bool WS_COOKIECopy(struct WebServer *Web,const char *Arg,
+ *              char *Dest,int MaxDest);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    Arg [I] -- The GET argument to search for an return
+ *    Dest [I] -- The buffer to copy the data into
+ *    MaxDest [I] -- The size of 'Dest'.
+ *
+ * FUNCTION:
+ *    This function gets a COOKIE from the request and returns it.
+ *
+ *    You must place all the COOKIE names you are going to be using (or could
+ *    want to use) in the Web->PageProp->Cookies[] array for the system to be
+ *    able read a cookie.
+ *
+ *    This version copies the var into a buffer instead of just returning
+ *    a pointer to the data.  It will copy up to 'MaxDest'-1 bytes, and will
+ *    always made the string \0 terminated.
+ *
+ * RETURNS:
+ *    true -- We where able to find the var and copy it
+ *    false -- We wheren't able to find the var or the buffer wasn't big enough.
+ *             The data was still copied into the buffer and clipped at
+ *             'MaxDest'.
+ *
+ * SEE ALSO:
+ *    WS_Start(), WS_COOKIE()
+ ******************************************************************************/
+bool WS_COOKIECopy(struct WebServer *Web,const char *Arg,char *Dest,int MaxDest)
+{
+    return WS_CopyHelper(WS_COOKIE(Web,Arg),Dest,MaxDest);
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_POSTCopy
+ *
+ * SYNOPSIS:
+ *    bool WS_POSTCopy(struct WebServer *Web,const char *Arg,
+ *              char *Dest,int MaxDest);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    Arg [I] -- The GET argument to search for an return
+ *    Dest [I] -- The buffer to copy the data into
+ *    MaxDest [I] -- The size of 'Dest'.
+ *
+ * FUNCTION:
+ *    This function gets a POST arg from the request and returns it.
+ *
+ *    You must place all the POST args you are going to be using (or could
+ *    want to use) in the Web->PageProp->Posts[] array for the system to be
+ *    able read a POST arg.
+ *
+ *    This version copies the var into a buffer instead of just returning
+ *    a pointer to the data.  It will copy up to 'MaxDest'-1 bytes, and will
+ *    always made the string \0 terminated.
+ *
+ * RETURNS:
+ *    true -- We where able to find the var and copy it
+ *    false -- We wheren't able to find the var or the buffer wasn't big enough.
+ *             The data was still copied into the buffer and clipped at
+ *             'MaxDest'.
+ *
+ * SEE ALSO:
+ *    WS_Start(), WS_POST()
+ ******************************************************************************/
+bool WS_POSTCopy(struct WebServer *Web,const char *Arg,char *Dest,int MaxDest)
+{
+    return WS_CopyHelper(WS_POST(Web,Arg),Dest,MaxDest);
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_CopyHelper
+ *
+ * SYNOPSIS:
+ *    static bool WS_CopyHelper(const char *Data,char *Dest,int MaxDest);
+ *
+ * PARAMETERS:
+ *    Data [I] -- The data returned from one of the WS_ copy functions.
+ *    Dest [I] -- The buffer to copy the data into
+ *    MaxDest [I] -- The size of 'Dest'.
+ *
+ * FUNCTION:
+ *    This is a helper function that check the buffer size, copies the correct
+ *    number of bytes, and figures out the return value.
+ *
+ * RETURNS:
+ *    true -- We where able to find the var and copy it
+ *    false -- We wheren't able to find the var or the buffer wasn't big enough.
+ *             The data was still copied into the buffer and clipped at
+ *             'MaxDest'.  If it was not found then 'Dest' will be set to
+ *             *Dest='\0';
+ *
+ * SEE ALSO:
+ *    
+ ******************************************************************************/
+static bool WS_CopyHelper(const char *Data,char *Dest,int MaxDest)
+{
+    unsigned int DataLen;
+    unsigned int CopyLen;
+
+    *Dest=0;
+
+    if(Data==NULL)
+        return false;
+
+    DataLen=strlen(Data);
+    CopyLen=DataLen;
+    if(DataLen>MaxDest-1)
+        CopyLen=MaxDest-1;
+
+    memcpy(Dest,Data,CopyLen);
+    Dest[CopyLen]=0;
+
+    if(DataLen>MaxDest)
+        return false;
+    return true;
 }
 
 /*******************************************************************************
@@ -2264,6 +2572,7 @@ static void WS_StartProcessingPOSTVar(struct WebServer *Web)
     char *Write;
     char *StorageStart;
     int p;
+    unsigned int Len;
 
     StorageStart=Web->ArgsStorage;
     Write=StorageStart;
@@ -2289,8 +2598,9 @@ static void WS_StartProcessingPOSTVar(struct WebServer *Web)
         for(p=0;Web->PageProp.Posts[p]!=0;p++)
         {
             /* See if this arg is in the args we had sent in */
-            if(strncmp(Web->LineBuff,Web->PageProp.Posts[p],
-                    strlen(Web->LineBuff))==0)
+            Len=strlen(Web->LineBuff);
+            if(strncmp(Web->LineBuff,Web->PageProp.Posts[p],Len)==0 &&
+                    Web->PageProp.Posts[p][Len]==0)
             {
                 /* Found this arg */
                 *Write++='Y';
@@ -2317,10 +2627,16 @@ static void WS_StartProcessingPOSTVar(struct WebServer *Web)
  *    WS_CopyLineBuffer2POSTVar
  *
  * SYNOPSIS:
- *    static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web);
+ *    static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web,
+ *              bool URLEncoded);
  *
  * PARAMETERS:
  *    Web [I] -- The web server context to work on
+ *    URLEncoded [I] -- Is the data in the line buffer URL encoded?  If this
+ *                      is true then the data is decoded as it is copied
+ *                      (a application/x-www-form-urlencoded body), if it is
+ *                      false then the data is copied as is (a
+ *                      multipart/form-data body).
  *
  * FUNCTION:
  *    This function copies what is in the line buffer to the POST var storage.
@@ -2335,7 +2651,7 @@ static void WS_StartProcessingPOSTVar(struct WebServer *Web)
  * SEE ALSO:
  *    WS_StartProcessingPOSTVar()
  ******************************************************************************/
-static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web)
+static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web,bool URLEncoded)
 {
     char EscBuff[3];
     char *Pos;
@@ -2359,7 +2675,7 @@ static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web)
         EscBuff[0]=0;
         EscBuff[1]=0;
         EscBuff[2]=0;
-        if(Web->LineBuffPos>=2)
+        if(URLEncoded && Web->LineBuffPos>=2)
         {
             /* Ok, move the esc seq to 'EscBuff' and kill it out of the main
                buffer */
@@ -2383,18 +2699,27 @@ static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web)
             }
         }
 
-        /* Decode the line buffer (we have to handle the + thing before we
-           decode it) */
-        Pos=Web->LineBuff;
-        while(*Pos!=0)
+        if(URLEncoded)
         {
-            if(*Pos=='+')
-                *Pos=' ';
-            Pos++;
-        }
-        EndOfLineBuff=WS_URLDecodeInPlace(Web->LineBuff);
+            /* Decode the line buffer (we have to handle the + thing before we
+               decode it) */
+            Pos=Web->LineBuff;
+            while(*Pos!=0)
+            {
+                if(*Pos=='+')
+                    *Pos=' ';
+                Pos++;
+            }
+            EndOfLineBuff=WS_URLDecodeInPlace(Web->LineBuff);
 
-        Len=EndOfLineBuff-Web->LineBuff;
+            Len=EndOfLineBuff-Web->LineBuff;
+        }
+        else
+        {
+            /* multipart/form-data is not encoded, take it as is (+1 for the
+               end of the string) */
+            Len=Web->LineBuffPos+1;
+        }
 
         /* Make sure we can fit this */
         if(Web->PostEndOfStorage+Len>Web->ArgsStorage+WS_OPT_ARG_MEMORY_SIZE)
@@ -2506,3 +2831,552 @@ static bool WS_CopyLineBuffer2POSTVar(struct WebServer *Web)
 //        }
 //    }
 //}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_ProcessPOSTFormDataBody
+ *
+ * SYNOPSIS:
+ *    static void WS_ProcessPOSTFormDataBody(struct WebServer *Web,
+ *              char *ReadPoint,int BytesLeft);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    ReadPoint [I] -- The point in the body block to read from
+ *    BytesLeft [I] -- The number of bytes left in this block to work through
+ *
+ * FUNCTION:
+ *    This is a helper function for WS_RunServer() that processes the body
+ *    when we have a POST request in Form Data mode.
+ *
+ *    The body is made up of a number of parts.  Each part starts with a
+ *    delimiter line ("--" followed by the boundary from the Content-Type
+ *    header), then some headers, a blank line, and finally the data for
+ *    that part.  The body ends with the delimiter with a "--" added to the
+ *    end of it.
+ *
+ *    The name of a part comes out of it's "Content-Disposition" header.
+ *    What we do with the data depends on where that name is found:
+ *      Web->PageProp.FilePosts[] -- The data is sent out to FS_POSTGetFile()
+ *              as it comes in (it is never stored in 'Web->ArgsStorage').
+ *              FS_POSTGetFile() is called one last time with a size of 0
+ *              when the part ends.
+ *      Web->PageProp.Posts[] -- The data is stored in 'Web->ArgsStorage' the
+ *              same way a URL encoded POST var is stored (see
+ *              WS_ProcessGetVars() for the format).
+ *      Nether -- The data is thrown away.
+ *
+ *    If FS_POSTGetFile() returns an error then the rest of that part is
+ *    thrown away and FS_POSTGetFile() is not called again for that part
+ *    (not even with a size of 0).  We keep reading the body because we
+ *    can not reply until the whole body has been read.
+ *
+ *    The body is not buffered.  The only bytes we hold on to are the ones
+ *    that could be the start of the next delimiter (if they turn out to be
+ *    data they are added back in front of the byte that broke the match).
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * NOTES:
+ *    The delimiter that ends a part is really "\r\n" followed by "--"
+ *    followed by the boundary.  The "\r\n" belongs to the delimiter and not
+ *    to the part, so the data of a part never ends with a "\r\n".
+ *
+ * LIMITATIONS:
+ *    The data in a part can not have the delimiter in it.  This is a
+ *    requirement of multipart/form-data (the browser picks a boundary that
+ *    is not in any of the data) but if it does happen the rest of that
+ *    part's data is lost (we resync on the next delimiter).
+ *
+ *    A POST var (one that is in Posts[] and not FilePosts[]) that has a \0
+ *    in it will be clipped at the \0 because 'Web->ArgsStorage' stores the
+ *    values as strings.  Use a FilePosts[] var if you need to POST binary
+ *    data.
+ *
+ * SEE ALSO:
+ *    WS_ProcessPOSTURLencodedBody(), FS_POSTGetFile()
+ ******************************************************************************/
+static void WS_ProcessPOSTFormDataBody(struct WebServer *Web,char *ReadPoint,
+        int BytesLeft)
+{
+    int DelimiterLen;
+    int RestartPos;
+    int p;
+    char *Pos;
+    char c;
+
+    if(Web->POSTBoundaryStr[0]==0)
+    {
+        /* We didn't get a boundary in the Content-Type header so we have no
+           way to know where the parts start and end.  Eat the body. */
+        Web->ReplyStatus=e_ReplyStatus_BadRequest;
+        if(Web->BodySize<(uint32_t)BytesLeft)
+            Web->BodySize=0;
+        else
+            Web->BodySize-=BytesLeft;
+        return;
+    }
+
+    if(Web->PostState==e_WSPostState_FormData_First)
+    {
+        /* This is the first block of the body.  The first delimiter is the
+           first thing in the body so it does not have a "\r\n" in front of
+           it, that's why we start the search 2 bytes in (at the "--") */
+        Web->PostState=e_WSPostState_FormData_BoundarySearch;
+        Web->PostBoundaryPos=2;
+        Web->LineBuffPos=0;
+        Web->PostWritePos=NULL;
+        Web->PostVarIsFile=false;
+    }
+
+    DelimiterLen=4+strlen(Web->POSTBoundaryStr);    // 4 for the "\r\n--"
+
+    while(BytesLeft>0 && Web->BodySize>0)
+    {
+        c=*ReadPoint;
+
+printf("\33[32m%c\33[m",c);
+fflush(stdout);
+
+        switch(Web->PostState)
+        {
+            case e_WSPostState_FormData_BoundarySearch:
+            case e_WSPostState_FormData_Data:
+                /* When we are searching we do not need the "\r\n" on the
+                   front of the delimiter (we are throwing away everything
+                   until we find a delimiter anyway) */
+                RestartPos=2;
+                if(Web->PostState==e_WSPostState_FormData_Data)
+                    RestartPos=0;
+
+                if(c==WS_GetFormDataDelimiterChar(Web,Web->PostBoundaryPos))
+                {
+                    /* This byte may be part of the delimiter.  We hold on to
+                       it until we know if it is a delimiter or data */
+                    Web->PostBoundaryPos++;
+                    if(Web->PostBoundaryPos>=DelimiterLen)
+                    {
+                        /* It was the delimiter, this part is done */
+                        if(Web->PostState==e_WSPostState_FormData_Data)
+                            WS_FlushFormDataVar(Web,true);
+
+                        /* Read the rest of the delimiter line.  We leave
+                           'PostBoundaryPos' set to mark that the next line
+                           we get is the end of the delimiter line and not a
+                           header */
+                        Web->PostState=e_WSPostState_FormData_Header;
+                        Web->LineBuffPos=0;
+                    }
+                    break;
+                }
+
+                if(Web->PostState==e_WSPostState_FormData_Data)
+                {
+                    /* It wasn't the delimiter after all, the bytes we where
+                       holding on to are really data */
+                    for(p=RestartPos;p<Web->PostBoundaryPos;p++)
+                    {
+                        WS_AddFormDataByte(Web,
+                                WS_GetFormDataDelimiterChar(Web,p));
+                    }
+                }
+
+                /* This byte may be the start of the delimiter */
+                Web->PostBoundaryPos=RestartPos;
+                if(c==WS_GetFormDataDelimiterChar(Web,RestartPos))
+                    Web->PostBoundaryPos=RestartPos+1;
+                else if(Web->PostState==e_WSPostState_FormData_Data)
+                    WS_AddFormDataByte(Web,c);
+            break;
+            case e_WSPostState_FormData_Header:
+                if(c=='\r')
+                    break;
+
+                if(c!='\n')
+                {
+                    /* Add this byte to the line buffer (if a header line is
+                       too long we just use the part that we have room for) */
+                    if(Web->LineBuffPos<(int)sizeof(Web->LineBuff)-1)
+                        Web->LineBuff[Web->LineBuffPos++]=c;
+                    break;
+                }
+
+                /* We have a whole line */
+                Web->LineBuff[Web->LineBuffPos]=0;
+                Web->LineBuffPos=0;
+
+                if(Web->PostBoundaryPos!=0)
+                {
+                    /* This is the end of the delimiter line, not a header */
+                    Web->PostBoundaryPos=0;
+
+                    /* Skip the transport padding (RFC 2046) */
+                    Pos=Web->LineBuff;
+                    while(*Pos==' ' || *Pos=='\t')
+                        Pos++;
+
+                    if(*Pos!=0)
+                    {
+                        /* Ether this was the closing delimiter (it has a
+                           "--" on the end of it) or something we where not
+                           expecting followed the delimiter (so it wasn't
+                           really a delimiter).  Ether way we go back to
+                           looking for a delimiter (anything after the
+                           closing delimiter is thrown away) */
+                        Web->PostState=e_WSPostState_FormData_BoundarySearch;
+                        Web->PostBoundaryPos=2;
+                        break;
+                    }
+
+                    /* A new part is starting.  We do not know anything about
+                       it until we get it's headers */
+                    Web->PostWritePos=NULL;
+                    Web->PostVarIsFile=false;
+                    Web->PostFileOffset=0;
+                    break;
+                }
+
+                if(Web->LineBuff[0]==0)
+                {
+                    /* A blank line, the data for this part starts now */
+                    Web->PostState=e_WSPostState_FormData_Data;
+                    Web->PostBoundaryPos=0;
+                    break;
+                }
+
+                if(strncmp(Web->LineBuff,"Content-Disposition:",20)==0)
+                    WS_ProcessFormDataDisposition(Web);
+                if(strncmp(Web->LineBuff,"Content-Type:",13)==0)
+                    WS_ProcessFormDataContentType(Web);
+            break;
+            case e_WSPostState_GettingKey:
+            case e_WSPostState_FormData_First:
+            case e_WSPostState_Error:
+            case e_WSPostStateMAX:
+            default:
+            break;
+        }
+
+        /* Consume this byte */
+        ReadPoint++;
+        BytesLeft--;
+        Web->BodySize--;
+    }
+
+    if(Web->BodySize==0 && Web->PostState==e_WSPostState_FormData_Data)
+    {
+        /* We ran out of body in the middle of a part (the closing delimiter
+           is missing).  Keep what we got. */
+        WS_FlushFormDataVar(Web,true);
+        Web->PostState=e_WSPostState_FormData_BoundarySearch;
+        Web->PostBoundaryPos=2;
+    }
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_GetFormDataDelimiterChar
+ *
+ * SYNOPSIS:
+ *    static char WS_GetFormDataDelimiterChar(struct WebServer *Web,int Pos);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    Pos [I] -- The index into the delimiter of the byte you want
+ *
+ * FUNCTION:
+ *    This function gets one byte out of the multipart/form-data delimiter.
+ *    The delimiter is a "\r\n" followed by "--" followed by the boundary
+ *    string that came in with the Content-Type header.  It is not stored as
+ *    one string so this function is used to make it look like one.
+ *
+ * RETURNS:
+ *    The byte at 'Pos' in the delimiter.
+ *
+ * SEE ALSO:
+ *    WS_ProcessPOSTFormDataBody()
+ ******************************************************************************/
+static char WS_GetFormDataDelimiterChar(struct WebServer *Web,int Pos)
+{
+    switch(Pos)
+    {
+        case 0:
+            return '\r';
+        case 1:
+            return '\n';
+        case 2:
+        case 3:
+            return '-';
+        default:
+            return Web->POSTBoundaryStr[Pos-4];
+    }
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_AddFormDataByte
+ *
+ * SYNOPSIS:
+ *    static void WS_AddFormDataByte(struct WebServer *Web,char Byte);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    Byte [I] -- The byte of data to add to the POST var being read
+ *
+ * FUNCTION:
+ *    This function adds one byte of data to the multipart/form-data var
+ *    that is currently being read.  The bytes are collected in the line
+ *    buffer and are handed off (stored or sent to the file system) when the
+ *    line buffer fills up.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    WS_FlushFormDataVar(), WS_ProcessPOSTFormDataBody()
+ ******************************************************************************/
+static void WS_AddFormDataByte(struct WebServer *Web,char Byte)
+{
+    Web->LineBuff[Web->LineBuffPos++]=Byte;
+    if(Web->LineBuffPos>=(int)sizeof(Web->LineBuff)-1)
+    {
+        /* The line buffer is full, empty it */
+        WS_FlushFormDataVar(Web,false);
+    }
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_FlushFormDataVar
+ *
+ * SYNOPSIS:
+ *    static void WS_FlushFormDataVar(struct WebServer *Web,bool EndOfVar);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *    EndOfVar [I] -- Is this the last of the data for this var?  When this
+ *                    is true a file is closed (FS_POSTGetFile() is called
+ *                    with a size of 0).
+ *
+ * FUNCTION:
+ *    This function takes the data that has been collected in the line
+ *    buffer and ether sends it to the file system (if the var is in the
+ *    Web->PageProp.FilePosts[] list) or stores it in 'Web->ArgsStorage' (if
+ *    the var is in the Web->PageProp.Posts[] list).  If the var is in
+ *    nether list then the data is thrown away.
+ *
+ *    If there is an error the var is switched over to being thrown away so
+ *    that the rest of the body can still be read (we have to read the whole
+ *    body before we can reply).
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    WS_AddFormDataByte(), WS_ProcessPOSTFormDataBody()
+ ******************************************************************************/
+static void WS_FlushFormDataVar(struct WebServer *Web,bool EndOfVar)
+{
+    if(Web->PostVarIsFile)
+    {
+        /* Send what we have collected to the file system */
+        if(Web->LineBuffPos>0)
+        {
+            if(!FS_POSTGetFile(Web,Web->PageProp.FileID,
+                    (uint8_t *)Web->LineBuff,Web->PostFileOffset,
+                    Web->LineBuffPos))
+            {
+                /* The file system had an error (it has set the status code),
+                   stop sending it data */
+                Web->PostVarIsFile=false;
+                Web->LineBuffPos=0;
+                return;
+            }
+            Web->PostFileOffset+=Web->LineBuffPos;
+            Web->LineBuffPos=0;
+        }
+
+        if(EndOfVar)
+        {
+            /* Tell the file system that this is the end of the file */
+            FS_POSTGetFile(Web,Web->PageProp.FileID,(uint8_t *)Web->LineBuff,
+                    Web->PostFileOffset,0);
+            Web->PostVarIsFile=false;
+        }
+        return;
+    }
+
+    /* Store it in the arg storage (a multipart/form-data body is not URL
+       encoded so we do not decode it) */
+    if(!WS_CopyLineBuffer2POSTVar(Web,false))
+    {
+        /* We are out of storage space (the status code has been set), stop
+           storing this var */
+        Web->PostWritePos=NULL;
+        Web->LineBuffPos=0;
+    }
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_ProcessFormDataDisposition
+ *
+ * SYNOPSIS:
+ *    static void WS_ProcessFormDataDisposition(struct WebServer *Web);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *
+ * FUNCTION:
+ *    This function processes the "Content-Disposition" header of a
+ *    multipart/form-data part.  It will take the line from 'Web->LineBuff'.
+ *
+ *    It pulls the name of the var out of the header and then sets up where
+ *    the data for this part is going to go.  If the name is in the
+ *    Web->PageProp.FilePosts[] list then the data will be sent to
+ *    FS_POSTGetFile(), if it is in the Web->PageProp.Posts[] list then it
+ *    will be stored in 'Web->ArgsStorage', and if it is in nether list then
+ *    it will be thrown away.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * NOTES:
+ *    This uses the line buffer as a scratch pad (the name is moved to the
+ *    start of it) so the header line is lost.
+ *
+ * SEE ALSO:
+ *    WS_StartProcessingPOSTVar(), WS_ProcessPOSTFormDataBody()
+ ******************************************************************************/
+static void WS_ProcessFormDataDisposition(struct WebServer *Web)
+{
+    char *Pos;
+    char *Name;
+    char *FileName;
+    char *End;
+    int p;
+
+    /* Find the start of the parts. */
+    Name=NULL;
+    FileName=NULL;
+    for(Pos=&Web->LineBuff[20];*Pos!=0;Pos++)
+    {
+        if(strncmp(Pos,"name=",5)==0 && (*(Pos-1)==' ' || *(Pos-1)==';'))
+        {
+            Name=Pos+5;
+        }
+        if(strncmp(Pos,"filename=",9)==0 && (*(Pos-1)==' ' || *(Pos-1)==';'))
+        {
+            FileName=Pos+9;
+        }
+    }
+    if(Name==NULL)
+    {
+        /* No name, we have no idea what to do with this part */
+        return;
+    }
+
+    if(FileName!=NULL)
+    {
+        /* Find the end of the filename */
+        if(*FileName=='\"')
+        {
+            FileName++;
+            End=FileName;
+            while(*End!='\"' && *End!=0)
+                End++;
+        }
+        else
+        {
+            End=FileName;
+            while(*End!=';' && *End!=' ' && *End!=0)
+                End++;
+        }
+        *End=0;
+        if(*FileName!=0)
+        {
+            FS_POSTGetFileMetadata(Web,Web->PageProp.FileID,
+                    e_POSTMetaData_Filename,FileName);
+        }
+    }
+
+    /* Find the end of the name */
+    if(*Name=='\"')
+    {
+        Name++;
+        End=Name;
+        while(*End!='\"' && *End!=0)
+            End++;
+    }
+    else
+    {
+        End=Name;
+        while(*End!=';' && *End!=' ' && *End!=0)
+            End++;
+    }
+    *End=0;
+
+    /* Move the name to the start of the line buffer because
+       WS_StartProcessingPOSTVar() takes the name from there */
+    memmove(Web->LineBuff,Name,End-Name+1);
+
+    /* See if this is one of the files we are expecting */
+    if(Web->PageProp.FilePosts!=NULL)
+    {
+        for(p=0;Web->PageProp.FilePosts[p]!=0;p++)
+        {
+            if(strcmp(Web->PageProp.FilePosts[p],Web->LineBuff)==0)
+            {
+                /* It is, the data will be sent to FS_POSTGetFile() as it
+                   comes in */
+                Web->PostVarIsFile=true;
+                Web->PostFileOffset=0;
+                return;
+            }
+        }
+    }
+
+    /* Setup to store this the same way a URL encoded POST var is stored
+       (this sets 'Web->PostWritePos' to NULL if we are not expecting it) */
+    WS_StartProcessingPOSTVar(Web);
+}
+
+/*******************************************************************************
+ * NAME:
+ *    WS_ProcessFormDataContentType
+ *
+ * SYNOPSIS:
+ *    static void WS_ProcessFormDataContentType(struct WebServer *Web);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web server context to work on
+ *
+ * FUNCTION:
+ *    This function processes the "Content-Type" header of a
+ *    multipart/form-data part.  It will take the line from 'Web->LineBuff'.
+ *
+ *    It just calls the FS_POSTGetFileMetadata() function with the value.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    FS_POSTGetFileMetadata()
+ ******************************************************************************/
+static void WS_ProcessFormDataContentType(struct WebServer *Web)
+{
+    char *Value;
+
+    /* Find the start of the type */
+    Value=&Web->LineBuff[14];
+    while(*Value==' ')
+        Value++;
+
+    /* No value = nothing to do */
+    if(*Value==0)
+        return;
+
+    FS_POSTGetFileMetadata(Web,Web->PageProp.FileID,e_POSTMetaData_ContentType,
+            Value);
+}
