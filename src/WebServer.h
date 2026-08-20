@@ -195,14 +195,6 @@ bool WS_URLDecode(const char *Value,char *Decoded,int MaxLen);
 char *WS_URLDecodeInPlace(char *Value);
 int WS_GetOSSocketHandles(struct WebServerInstance *Inst,t_ConSocketHandle *Handles);
 
-/* Web server calls these */
-//bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp);
-//void FS_SendFile(struct WebServer *Web,uintptr_t FileID);
-//bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,
-//        unsigned long ChunkOffset,unsigned long ChunkDataSize);
-//void FS_POSTGetFileMetadata(struct WebServer *Web,uintptr_t FileID,
-//        e_POSTMetaDataType Meta,const char *Metadata);
-
 t_ElapsedTime ReadElapsedClock(void);
 
 #endif

@@ -5,7 +5,7 @@
  *    Bitty HTTP
  *
  * FILE DESCRIPTION:
- *    example using WS_GETCopy()/WS_POSTCopy()/WS_COOKIECopy()
+ *    POST file upload example
  *
  * COPYRIGHT:
  *    Copyright (c) 2026 Paul Hutchinson
@@ -42,23 +42,9 @@
 /*** MACROS                   ***/
 
 /*** TYPE DEFINITIONS         ***/
-const char *GetArgs[]=
+const char *FilesArgs[]=
 {
-    "Name",
-    "DoCookie",
-    "SetCookieValue",
-    NULL
-};
-
-const char *PostArgs[]=
-{
-    "Name",
-    NULL
-};
-
-const char *CookieArgs[]=
-{
-    "Name",
+    "Upload",
     NULL
 };
 
@@ -70,6 +56,9 @@ struct FileInfo
     const char **Gets;
     const char **Posts;
     const char **FilePosts;
+    uint8_t *FileStorage;
+    uint32_t FileStorageSize;
+    bool FileRejected;
     void (*WriteFile)(struct WebServer *Web);
 };
 
@@ -80,13 +69,14 @@ void File_SomeStyle(struct WebServer *Web);
 void File_Quit(struct WebServer *Web);
 
 /*** VARIABLE DEFINITIONS     ***/
+uint8_t m_FileContents[2000];
 struct FileInfo m_Files[]=
 {
     /* Filename, Dynamic, Cookies, Gets, Posts, Callback */
-    {"/",false,NULL,NULL,NULL,NULL,File_Root},
-    {"/Display.html",true,CookieArgs,GetArgs,PostArgs,NULL,File_Display},
-    {"/SomeStyle.css",false,NULL,NULL,NULL,NULL,File_SomeStyle},
-    {"/quit.html",true,NULL,NULL,NULL,NULL,File_Quit},
+    {"/",false,NULL,NULL,NULL,NULL,NULL,0,false,File_Root},
+    {"/Display.html",true,NULL,NULL,NULL,FilesArgs,m_FileContents,sizeof(m_FileContents),false,File_Display},
+    {"/SomeStyle.css",false,NULL,NULL,NULL,NULL,NULL,0,false,File_SomeStyle},
+    {"/quit.html",true,NULL,NULL,NULL,NULL,NULL,0,false,File_Quit},
 };
 
 /*******************************************************************************
@@ -144,6 +134,13 @@ bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp)
             PageProp->Gets=m_Files[r].Gets;
             PageProp->Posts=m_Files[r].Posts;
             PageProp->FilePosts=m_Files[r].FilePosts;
+
+            /* Clear the contents before we try to send a reply (or collect
+               any contents) */
+            if(m_Files[r].FileStorage!=NULL)
+                *m_Files[r].FileStorage=0;
+            m_Files[r].FileRejected=false;
+
             return true;
         }
     }
@@ -185,6 +182,143 @@ void FS_SendFile(struct WebServer *Web,uintptr_t FileID)
         return;
 
     File->WriteFile(Web);
+}
+
+/*******************************************************************************
+ * NAME:
+ *    FS_POSTGetFile
+ *
+ * SYNOPSIS:
+ *    bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,
+ *              uint8_t *ChunkData,unsigned long ChunkOffset,
+ *              unsigned long ChunkDataSize);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
+ *    FileID [I] -- The number that was setup in GetFilePropertiesCB().
+ *                  This has no meaning to the web server and is just passed
+ *                  to this function.  It can be a pointer to some object
+ *                  of your defining.
+ *    ChunkData [I] -- A buffer with the file data in it.  This will not
+ *          have all the data in it just some of it (see below for details)
+ *    ChunkOffset [I] -- The number of bytes have already been send before
+ *          we got to this call.
+ *    ChunkDataSize [I] -- The number of bytes of data available 'ChunkData'.
+ *
+ * FUNCTION:
+ *    This function is called when handling a POST request with
+ *    enctype="multipart/form-data" set.
+ *
+ *    When this is call we have found a POST var in the WSPageProp.FilePosts
+ *    list and we have the some data for that chunk.  This will be called
+ *    many times for the same file as new data comes in the connection.
+ *    The data will always be in order (you do not have to re-assemble the
+ *    data, you just have to handle it coming a bit at a time).
+ *
+ *    When the whole file has been uploaded then this will be called one last
+ *    time with a 'ChunkDataSize' of 0.  This can be used to close the file.
+ *
+ *    If you do not support file uploads you can set this to NULL.
+ *
+ * RETURNS:
+ *    true -- Everything is good
+ *    false -- There was an error.  You should call WS_SetHTTPStatusCode()
+ *             to set the error code.
+ *
+ * EXAMPLE:
+ *    So for a file that has:
+ *      abcdefghijklmnopqrstuvwxyz
+ *    You might get the following calls:
+ *      FS_POSTGetFile(web,0,"abc",0,3);
+ *      FS_POSTGetFile(web,0,"defghijklmnop",3,13);
+ *      FS_POSTGetFile(web,0,"qrstuvwxyz",16,10);
+ *      FS_POSTGetFile(web,0,"",26,0);
+ *
+ * SEE ALSO:
+ *    SendFileCB()
+ ******************************************************************************/
+bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,
+        uint8_t *ChunkData,unsigned long ChunkOffset,
+        unsigned long ChunkDataSize)
+{
+    struct FileInfo *File=(struct FileInfo *)FileID;
+
+    if(File->FileRejected)
+    {
+        WS_SetHTTPStatusCode(Web,e_ReplyStatus_InternalServerError);
+        WS_WriteWholeStr(Web,"500 Internal Server Error");
+        return false;
+    }
+
+    if(ChunkDataSize==0)
+    {
+        /* Done, make it a string */
+        File->FileStorage[ChunkOffset]=0;
+        return true;
+    }
+
+    if(ChunkOffset+ChunkDataSize>=File->FileStorageSize)
+    {
+        WS_SetHTTPStatusCode(Web,e_ReplyStatus_InsufficientStorage);
+        WS_WriteWholeStr(Web,"507 Insufficient Storage");
+        return false;
+    }
+
+    memcpy(&File->FileStorage[ChunkOffset],ChunkData,ChunkDataSize);
+
+    return true;
+}
+
+/*******************************************************************************
+ * NAME:
+ *    FS_POSTGetFileMetadata
+ *
+ * SYNOPSIS:
+ *    void FS_POSTGetFileMetadata(struct WebServer *Web,uintptr_t FileID,
+ *              e_POSTMetaDataType Meta,const char *Metadata);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
+ *    FileID [I] -- The number that was setup in GetFilePropertiesCB().
+ *                  This has no meaning to the web server and is just passed
+ *                  to this function.  It can be a pointer to some object
+ *                  of your defining.
+ *    Meta [I] -- What type of metadata did we find.  Supported values:
+ *                      e_POSTMetaData_Filename -- The filename of the
+ *                          uploaded file
+ *                      e_POSTMetaData_ContentType -- The type of content.
+ *                          This will be a string from the Content-Type:
+ *                          header for this file.
+ *    Metadata [I] -- A pointer to the string with the metadata in it.
+ *
+ * FUNCTION:
+ *    This function is called when uploading a file with
+ *    enctype="multipart/form-data".  It lets you know info about the
+ *    file that is about to be sent to POSTGetFileCB().  Depending on what
+ *    the web browser send you may get all these metadata's or none of them.
+ *
+ *    If you do not handle file uploads or don't care about the metadata then
+ *    this can be set to NULL to ignore.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    
+ ******************************************************************************/
+void FS_POSTGetFileMetadata(struct WebServer *Web,uintptr_t FileID,
+        e_POSTMetaDataType Meta,const char *Metadata)
+{
+    struct FileInfo *File=(struct FileInfo *)FileID;
+
+    /* We only let them upload text files.  We use strstr() because the
+       line may include other text (like the charset), really we should
+       process the line correctly looking for ';' and such, but this is
+       "easy" */
+    if(Meta==e_POSTMetaData_ContentType && strstr(Metadata,"text/plain")==0)
+    {
+        File->FileRejected=true;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -267,37 +401,19 @@ const char RootHTML[]=
 "<!DOCTYPE html>"
 "<html>"
 "<head>"
-    "<title>Bitty HTTP - VarCopy example</title>"
+    "<title>Bitty HTTP - Root</title>"
     "<link rel='stylesheet' href='/SomeStyle.css'>"
 "</head>"
 "<body>"
-    "<div id='top'>Bitty HTTP Example - VarCopy</div>"
+    "<div id='top'>Bitty HTTP Example - Root</div>"
     "<div id='quitbttn'><a href='/quit.html'>QUIT</a></div>"
     "<div id='content'>"
-        "<div style='border:1px solid black;padding:3px;margin-top:5px;'>"
-        "GET example<br/>"
-        "<form action='/Display.html' method='GET'>"
-        "Input your name:<input name='Name'></input> "
-        "<input type='submit'></input>"
-        "</form>"
-        "</div>"
+        "POST file upload example<br/>"
         "<br/>"
-        "<div style='border:1px solid black'>"
-        "POST example<br/>"
-        "<form action='/Display.html' method='POST'>"
-        "Input your name:<input name='Name'></input> "
+        "<form action='/Display.html' method='POST' enctype='multipart/form-data'>"
+        "Select your file:<input name='Upload' type='File'></input><br/>"
         "<input type='submit'></input>"
         "</form>"
-        "</div>"
-        "<br/>"
-        "<div style='border:1px solid black'>"
-        "COOKIE example<br/>"
-        "<form action='/Display.html' method='GET'>"
-        "<input type='hidden' name='DoCookie' value='1' />"
-        "Input your name:<input name='SetCookieValue'></input> "
-        "<input type='submit'></input>"
-        "</form>"
-        "</div>"
         "<br/>"
     "</div>"
 "<div id='bottom'></div>"
@@ -330,76 +446,18 @@ const char DisplayHTML_End[]=
 void File_Display(struct WebServer *Web)
 {
     char buff[100];
-    char DoingCookie[2];
-    char GetName[10];
-    char PostName[10];
-    char CookieName[10];
-    char SetCookieValue[10];
-    bool GetFound;
-    bool PostFound;
-    bool CookieFound;
+    const char *Name;
 
-    /* Collect all the vars first */
-    GetFound=WS_GETCopy(Web,"Name",GetName,sizeof(GetName));
-    PostFound=WS_POSTCopy(Web,"Name",PostName,sizeof(PostName));
-    CookieFound=WS_COOKIECopy(Web,"Name",CookieName,sizeof(CookieName));
-
-    /* Handle setting the cookie (if needed) */
-    WS_GETCopy(Web,"DoCookie",DoingCookie,sizeof(DoingCookie));
-    if(DoingCookie[0]=='1')
-    {
-        /* We use 'SetCookieValue' without checking if it was found because we
-           know it will be set to '\0' if it was not found */
-        WS_GETCopy(Web,"SetCookieValue",SetCookieValue,sizeof(SetCookieValue));
-        WS_SetCookie(Web,"Name",SetCookieValue,0,NULL,NULL,false,false);
-    }
-
-    /* Start the page */
     WS_WriteChunk(Web,DisplayHTML_Start,sizeof(DisplayHTML_Start)-1);
 
-    WS_WriteChunkStr(Web,"<table>");
-    /************ GET ************/
-    WS_WriteChunkStr(Web,"<tr>");
-    WS_WriteChunkStr(Web,"<td>GET</td>");
-
-    snprintf(buff,sizeof(buff),"<td>Value:\"%s\"</td>",GetName);
-    WS_WriteChunkStr(Web,buff);
-    if(!GetFound)
-        WS_WriteChunkStr(Web,"<td>Name was not set or was too long</td>");
-    else
-        WS_WriteChunkStr(Web,"<td></td>");
-    WS_WriteChunkStr(Web,"</tr>");
-
-    /************ POST ************/
-    WS_WriteChunkStr(Web,"<tr>");
-    WS_WriteChunkStr(Web,"<td>POST</td>");
-
-    snprintf(buff,sizeof(buff),"<td>Value:\"%s\"</td>",PostName);
-    WS_WriteChunkStr(Web,buff);
-    if(!PostFound)
-        WS_WriteChunkStr(Web,"<td>Name was not set or was too long</td>");
-    else
-        WS_WriteChunkStr(Web,"<td></td>");
-    WS_WriteChunkStr(Web,"</tr>");
-
-    /************ COOKIE ************/
-    WS_WriteChunkStr(Web,"<tr>");
-    WS_WriteChunkStr(Web,"<td>COOKIE</td>");
-
-    snprintf(buff,sizeof(buff),"<td>Value:\"%s\"</td>",CookieName);
-    WS_WriteChunkStr(Web,buff);
-    if(!CookieFound)
-        WS_WriteChunkStr(Web,"<td>Name was not set or was too long");
-    else
-        WS_WriteChunkStr(Web,"<td>");
-    WS_WriteChunkStr(Web," (Remember the cookie value will be 1 refresh behind)</td>");
-    WS_WriteChunkStr(Web,"</tr>");
-
-    WS_WriteChunkStr(Web,"</table>");
+    WS_WriteChunkStr(Web,"Contents of file uploaded:");
+    WS_WriteChunkStr(Web,"<hr/><pre>");
+    WS_WriteChunkStr(Web,m_FileContents);
+    WS_WriteChunkStr(Web,"</pre><hr/>");
+    WS_WriteChunkStr(Web,"NOTE: You should NEVER just echo back what was sent in on a real server");
 
     WS_WriteChunk(Web,"<br/><br/><a href='/'>Try again</a>",35);
     WS_WriteChunk(Web,"<br/>",5);
 
     WS_WriteChunk(Web,DisplayHTML_End,sizeof(DisplayHTML_End)-1);
 }
-

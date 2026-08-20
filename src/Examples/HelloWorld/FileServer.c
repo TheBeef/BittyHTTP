@@ -48,6 +48,7 @@ struct FileInfo
     const char **Cookies;
     const char **Gets;
     const char **Posts;
+    const char **FilePosts;
     void (*WriteFile)(struct WebServer *Web);
 };
 
@@ -58,7 +59,7 @@ void File_Root(struct WebServer *Web);
 struct FileInfo m_Files[]=
 {
     /* Filename, Dynamic, Cookies, Gets, Posts, Callback */
-    {"/",false,NULL,NULL,NULL,File_Root},
+    {"/",false,NULL,NULL,NULL,NULL,File_Root},
 };
 
 /*******************************************************************************
@@ -115,6 +116,7 @@ bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp)
             PageProp->Cookies=m_Files[r].Cookies;
             PageProp->Gets=m_Files[r].Gets;
             PageProp->Posts=m_Files[r].Posts;
+            PageProp->FilePosts=m_Files[r].FilePosts;
             return true;
         }
     }

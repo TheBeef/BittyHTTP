@@ -50,6 +50,7 @@ struct FileInfo
     const char **Cookies;
     const char **Gets;
     const char **Posts;
+    const char **FilePosts;
     void (*WriteFile)(struct WebServer *Web);
 };
 
@@ -67,13 +68,13 @@ void File_Quit(struct WebServer *Web);
 struct FileInfo m_Files[]=
 {
     /* Filename, Dynamic, Cookies, Gets, Posts, Callback */
-    {"/",true,NULL,NULL,NULL,File_Root},
-    {"/Redirect1.html",true,NULL,NULL,NULL,File_Redirect1},
-    {"/Redirect2.html",true,NULL,NULL,NULL,File_Redirect2},
-    {"/StatusCode.html",true,NULL,NULL,NULL,File_StatusCode},
-    {"/GenericHeader.html",true,NULL,NULL,NULL,File_GenericHeader},
-    {"/SomeStyle.css",false,NULL,NULL,NULL,File_SomeStyle},
-    {"/quit.html",true,NULL,NULL,NULL,File_Quit},
+    {"/",true,NULL,NULL,NULL,NULL,File_Root},
+    {"/Redirect1.html",true,NULL,NULL,NULL,NULL,File_Redirect1},
+    {"/Redirect2.html",true,NULL,NULL,NULL,NULL,File_Redirect2},
+    {"/StatusCode.html",true,NULL,NULL,NULL,NULL,File_StatusCode},
+    {"/GenericHeader.html",true,NULL,NULL,NULL,NULL,File_GenericHeader},
+    {"/SomeStyle.css",false,NULL,NULL,NULL,NULL,File_SomeStyle},
+    {"/quit.html",true,NULL,NULL,NULL,NULL,File_Quit},
 };
 
 /*******************************************************************************
@@ -130,6 +131,7 @@ bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp)
             PageProp->Cookies=m_Files[r].Cookies;
             PageProp->Gets=m_Files[r].Gets;
             PageProp->Posts=m_Files[r].Posts;
+            PageProp->FilePosts=m_Files[r].FilePosts;
             return true;
         }
     }

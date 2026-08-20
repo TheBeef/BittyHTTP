@@ -3125,9 +3125,6 @@ static void WS_ProcessPOSTFormDataBody(struct WebServer *Web,char *ReadPoint,
     {
         c=*ReadPoint;
 
-printf("\33[32m%c\33[m",c);
-fflush(stdout);
-
         switch(Web->PostState)
         {
             case e_WSPostState_FormData_BoundarySearch:
