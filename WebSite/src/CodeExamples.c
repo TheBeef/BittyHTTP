@@ -109,6 +109,17 @@ const char *m_Cookies[]=
     "Examples/Cookies/FileServer.c",
 };
 
+const char *m_VarCopy[]=
+{
+    "main.c",
+    "Options.h",
+    "SocketsCon.c",
+    "SocketsCon.h",
+    "WebServer.c",
+    "WebServer.h",
+    "Examples/VarsCopy/FileServer.c",
+};
+
 const char *m_ManualHeaders[]=
 {
     "main.c",
@@ -186,6 +197,11 @@ struct ExampleCode g_Examples[e_ExampleCodeMAX]=
         "Cookies",
         m_Cookies,
         sizeof(m_Cookies)/sizeof(const char *)
+    },
+    {
+        "VarCopy",
+        m_VarCopy,
+        sizeof(m_VarCopy)/sizeof(const char *)
     },
     {
         "Manual Headers",

@@ -46,6 +46,7 @@ typedef enum
     e_ExampleCode_GETVars,
     e_ExampleCode_POSTVars,
     e_ExampleCode_Cookies,
+    e_ExampleCode_VarCopy,
     e_ExampleCode_ManualHeaders,
     e_ExampleCode_URLEncode,
     e_ExampleCode_Waiting,

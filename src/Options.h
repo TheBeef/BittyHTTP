@@ -42,6 +42,7 @@
 #define WS_OPT_ARG_MEMORY_SIZE              100     // The memory block to use to store the cookies, get args, and post args
 #define WS_SECONDS_UNTIL_CONNECTION_RELEASE 10      // How many seconds to wait after a connection stops sending to us before we hang up
 #define WS_LINE_BUFFER_SIZE                 256     // The max number of bytes we can handle a single header line can be (including the GET line).  This is normally in the order of 16K - 128K (we default to a lot less)
+#define WS_POST_BOUNDARY_SIZE               70      // RFC 2046 says this needs to be 70 but if you are not using POST multipart/form-data you might what to save some memory by setting this to 1
 
 /***  MACROS                           ***/
 

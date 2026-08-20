@@ -35,8 +35,7 @@
 #include "WebServer.h"
 #include <stdint.h>
 #include <stdio.h>
-
-#include <unistd.h> // usleep()
+#include <time.h>
 
 /*** DEFINES                  ***/
 
@@ -45,6 +44,7 @@
 /*** TYPE DEFINITIONS         ***/
 
 /*** FUNCTION PROTOTYPES      ***/
+static void usleep_replacement(long microseconds);
 
 /*** VARIABLE DEFINITIONS     ***/
 bool g_Quit;
@@ -68,7 +68,7 @@ int main(void)
     while(!g_Quit)
     {
         WS_Tick();
-        usleep(1000);
+        usleep_replacement(1000);
     }
 
     printf("Quiting...\n");
@@ -115,5 +115,38 @@ t_ElapsedTime ReadElapsedClock(void)
 
     Current=time(NULL);
 
+printf("TIME:%d\n",Current);
+
     return (uint32_t)Current;
+}
+
+/*******************************************************************************
+ * NAME:
+ *    usleep_replacement
+ *
+ * SYNOPSIS:
+ *    static void usleep_replacement(long microseconds);
+ *
+ * PARAMETERS:
+ *    microseconds [I] -- The total number of microseconds to suspend execution.
+ *
+ * FUNCTION:
+ *    Suspends the execution of the calling thread for at least the specified
+ *    number of microseconds using the modern POSIX nanosleep function as
+ *    a replacement for usleep()
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    usleep
+ ******************************************************************************/
+static void usleep_replacement(long microseconds)
+{
+    struct timespec ts;
+
+    ts.tv_sec=microseconds/1000000;
+    ts.tv_nsec=(microseconds%1000000)*1000;
+
+    nanosleep(&ts,NULL);
 }

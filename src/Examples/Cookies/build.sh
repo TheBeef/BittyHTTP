@@ -1,2 +1,2 @@
 #!/bin/bash
-gcc FileServer.c ../../main.c ../../SocketsCon.c ../../WebServer.c -o CookiesVars.exe
+gcc FileServer.c ../../main.c ../../SocketsCon.c ../../WebServer.c -o CookiesVars

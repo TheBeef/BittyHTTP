@@ -40,6 +40,7 @@ SOURCE = Base/main.c \
 	Pages/Doc/GETVars.c \
 	Pages/Doc/POSTVars.c \
 	Pages/Doc/Cookies.c \
+	Pages/Doc/VarCopies.c \
 	Pages/Doc/Headers.c \
 	Pages/Doc/URLEncoding.c \
 	Pages/Doc/Waiting.c \

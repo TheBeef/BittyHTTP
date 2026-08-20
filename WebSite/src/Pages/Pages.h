@@ -59,6 +59,7 @@ typedef enum
     e_Page_GETVars,
     e_Page_POSTVars,
     e_Page_CookiesVars,
+    e_Page_VarCopy,
     e_Page_Headers,
     e_Page_URLEncode,
     e_Page_Waiting,
@@ -91,6 +92,7 @@ void File_Doc_DynamicContent(struct WebServer *Web);
 void File_Doc_GETVars(struct WebServer *Web);
 void File_Doc_POSTVars(struct WebServer *Web);
 void File_Doc_CookiesVars(struct WebServer *Web);
+void File_Doc_VarCopy(struct WebServer *Web);
 void File_Doc_HeadersVars(struct WebServer *Web);
 void File_Doc_URLEncodingVars(struct WebServer *Web);
 void File_Doc_Waiting(struct WebServer *Web);

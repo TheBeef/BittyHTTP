@@ -61,6 +61,7 @@ const char m_DevelopmentHTML[]=
     "<li><a href='/Doc/GETVars.html'>GET Vars</a></li>"
     "<li><a href='/Doc/POSTVars.html'>POST Vars</a></li>"
     "<li><a href='/Doc/Cookies.html'>Cookies</a></li>"
+    "<li><a href='/Doc/VarCopy.html'>Var Copy</a></li>"
     "<li><a href='/Doc/ManualHeaders.html'>Manual Headers</a></li>"
     "<li><a href='/Doc/URLEncoding.html'>URL encoding/decoding</a></li>"
     "<li><a href='/Doc/Waiting.html'>Waiting on a socket</a></li>"

@@ -111,6 +111,7 @@ struct FileInfo m_Files[]=
     {e_FileKind_BuiltIn,.BuiltIn={"/Doc/GETVars.html",       false,NULL,NULL,NULL,e_Page_GETVars,        File_Doc_GETVars}},
     {e_FileKind_BuiltIn,.BuiltIn={"/Doc/POSTVars.html",      false,NULL,NULL,NULL,e_Page_POSTVars,       File_Doc_POSTVars}},
     {e_FileKind_BuiltIn,.BuiltIn={"/Doc/Cookies.html",       false,NULL,NULL,NULL,e_Page_CookiesVars,    File_Doc_CookiesVars}},
+    {e_FileKind_BuiltIn,.BuiltIn={"/Doc/VarCopy.html",       false,NULL,NULL,NULL,e_Page_VarCopy,        File_Doc_VarCopy}},
     {e_FileKind_BuiltIn,.BuiltIn={"/Doc/ManualHeaders.html", false,NULL,NULL,NULL,e_Page_Headers,        File_Doc_HeadersVars}},
     {e_FileKind_BuiltIn,.BuiltIn={"/Doc/URLEncoding.html",   false,NULL,NULL,NULL,e_Page_URLEncode,      File_Doc_URLEncodingVars}},
     {e_FileKind_BuiltIn,.BuiltIn={"/Doc/Waiting.html",       false,NULL,NULL,NULL,e_Page_Waiting,        File_Doc_Waiting}},
@@ -141,6 +142,7 @@ struct PageInfo g_PageInfo[e_PageMAX]=
         {e_Page_Development,            "GET Vars"},            // e_Page_GETVars
         {e_Page_Development,            "POST Vars"},           // e_Page_POSTVars
         {e_Page_Development,            "Cookies"},             // e_Page_CookiesVars
+        {e_Page_Development,            "Var Copies"},          // e_Page_VarCopy
         {e_Page_Development,            "Headers"},             // e_Page_Headers
         {e_Page_Development,            "URL Encode"},          // e_Page_URLEncode
         {e_Page_Development,            "Waiting on Sockets"},  // e_Page_Waiting

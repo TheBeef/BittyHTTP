@@ -66,8 +66,17 @@ static struct ReleaseNote m_Notes_Next[]=
          "A build.bat file has been added to build the hello world example"
          " under Windows.  Another set of files (SocketsConWin.c and .h) have"
          " been added to connect to WinSock.\n"
-         "Work still needs to be done to update all the examples to have a"
-         " build.bat file."
+    },
+    {
+         "Added WS_GETCopy(), WS_POSTCopy(), WS_COOKIECopy()",
+         "The helper functions that copy a var to a buffer instead of returning"
+         " a pointer have been added."
+    },
+    {
+         "Added file upload callbacks",
+         "Two new functions have been added FS_POSTGetFile() and"
+         " FS_POSTGetFileMetadata().  These add support for POST enctype of"
+         " multipart/form-data."
     },
 };
 

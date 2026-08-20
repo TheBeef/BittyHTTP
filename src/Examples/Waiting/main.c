@@ -38,6 +38,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef WIN32
+ #include <winsock2.h>
+#endif
 
 /*** DEFINES                  ***/
 
