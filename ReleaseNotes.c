@@ -78,6 +78,13 @@ static struct ReleaseNote m_Notes_Next[]=
          " FS_POSTGetFileMetadata().  These add support for POST enctype of"
          " multipart/form-data."
     },
+    {
+         "Added support for running more than 1 web server per program",
+         "The main API has been changed so global variables / functions."
+         "  This allows you to run more than 1 web server (on different ports)"
+         " from the same program.  It also made some call back functions"
+         " optional, so you don't have to provide stub functions."
+    },
 };
 
 static struct ReleaseNote m_Notes_1_4[]=

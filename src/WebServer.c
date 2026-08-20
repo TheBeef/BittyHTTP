@@ -2,14 +2,14 @@
  * FILENAME: WebServer.c
  *
  * PROJECT:
- *    Bitty HTTP 1.4
+ *    Bitty HTTP 1.5
  *
  * FILE DESCRIPTION:
  *    This file has the main web server in it.  You need to copy this file
  *    to your project.
  *
  * COPYRIGHT:
- *    Copyright (c) 2019 Paul Hutchinson
+ *    Copyright (c) 2026 Paul Hutchinson
  *
  *    Permission is hereby granted, free of charge, to any person obtaining a copy
  *    of this software and associated documentation files (the "Software"), to deal
