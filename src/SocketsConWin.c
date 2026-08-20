@@ -647,6 +647,9 @@ bool SocketsCon_Accept(struct SocketCon *Con,struct SocketCon *NewCon)
     int flags;
     u_long mode = 1;  // 1 to enable non-blocking socket
 
+    if(Con->State==e_ConnectState_Error)
+        return false;
+
     clilen=sizeof(cli_addr);
 
     FD_ZERO(&fds);

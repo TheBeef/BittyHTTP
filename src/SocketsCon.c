@@ -670,6 +670,9 @@ bool SocketsCon_Accept(struct SocketCon *Con,struct SocketCon *NewCon)
     struct sockaddr_in cli_addr;
     int flags;
 
+    if(Con->State==e_ConnectState_Error)
+        return false;
+
     clilen=sizeof(cli_addr);
 
     FD_ZERO(&fds);
