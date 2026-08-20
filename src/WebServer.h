@@ -152,7 +152,7 @@ struct WebServerInstance
     struct SocketCon ListeningSocket;
     uint16_t Port;
     struct WebServer WebServers[WS_OPT_MAX_CONNECTIONS];
-    bool (*GetFileProperties)(const char *Filename,struct WSPageProp *PageProp);
+    bool (*GetFileProperties)(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp);
     void (*SendFile)(struct WebServer *Web,uintptr_t FileID);
     bool (*POSTGetFile)(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,unsigned long ChunkOffset,unsigned long ChunkDataSize);
     void (*POSTGetFileMetadata)(struct WebServer *Web,uintptr_t FileID,e_POSTMetaDataType Meta,const char *Metadata);
@@ -164,7 +164,7 @@ struct WebServerInstance
 
 /***  EXTERNAL FUNCTION PROTOTYPES     ***/
 void WS_Init(struct WebServerInstance *Inst,uint16_t Port,
-        bool (*GetFilePropertiesCB)(const char *Filename,struct WSPageProp *PageProp),
+        bool (*GetFilePropertiesCB)(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp),
         void (*SendFileCB)(struct WebServer *Web,uintptr_t FileID),
         bool (*POSTGetFileCB)(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,unsigned long ChunkOffset,unsigned long ChunkDataSize),
         void (*POSTGetFileMetadataCB)(struct WebServer *Web,uintptr_t FileID,e_POSTMetaDataType Meta,const char *Metadata));

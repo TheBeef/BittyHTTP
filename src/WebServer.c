@@ -83,8 +83,8 @@ static void WS_ProcessFormDataContentType(struct WebServer *Web);
  *
  * SYNOPSIS:
  *    void WS_Init(struct WebServerInstance *Inst,uint16_t Port,
- *              bool (*GetFilePropertiesCB)(const char *Filename,
- *                  struct WSPageProp *PageProp),
+ *              bool (*GetFilePropertiesCB)(struct WebServer *Web,
+ *                  const char *Filename,struct WSPageProp *PageProp),
  *              void (*SendFileCB)(struct WebServer *Web,uintptr_t FileID),
  *              bool (*POSTGetFileCB)(struct WebServer *Web,uintptr_t FileID,
  *                  uint8_t *ChunkData,unsigned long ChunkOffset,
@@ -114,10 +114,11 @@ static void WS_ProcessFormDataContentType(struct WebServer *Web);
  *    GetFilePropertiesCB
  *
  * SYNOPSIS:
- *    bool GetFilePropertiesCB(const char *Filename,
- *          struct WSPageProp *PageProp);
+ *    bool GetFilePropertiesCB(struct WebServer *Web,
+ *          const char *Filename,struct WSPageProp *PageProp);
  *
  * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
  *    Filename [I] -- The filename from the URL that is being requested.
  *    PageProp [O] -- This is filled in with info about the page.
  *                      FileID -- The ID of the page.  This has no meaning
@@ -268,7 +269,7 @@ static void WS_ProcessFormDataContentType(struct WebServer *Web);
  *    WS_Shutdown()
  ******************************************************************************/
 void WS_Init(struct WebServerInstance *Inst,uint16_t Port,
-        bool (*GetFilePropertiesCB)(const char *Filename,struct WSPageProp *PageProp),
+        bool (*GetFilePropertiesCB)(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp),
         void (*SendFileCB)(struct WebServer *Web,uintptr_t FileID),
         bool (*POSTGetFileCB)(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,unsigned long ChunkOffset,unsigned long ChunkDataSize),
         void (*POSTGetFileMetadataCB)(struct WebServer *Web,uintptr_t FileID,e_POSTMetaDataType Meta,const char *Metadata))
@@ -544,7 +545,7 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
                 {
                     Web->Req=e_ReqType_Get;
                     WS_ProcessURI(Web);
-                    if(Web->Inst->GetFileProperties(&Web->LineBuff[4],
+                    if(Web->Inst->GetFileProperties(Web,&Web->LineBuff[4],
                             &Web->PageProp))
                     {
                         WS_ProcessGetVars(Web);
@@ -561,7 +562,7 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
                     Web->EncType=e_EncType_URLencoded;
 
                     WS_ProcessURI(Web);
-                    if(Web->Inst->GetFileProperties(&Web->LineBuff[5],
+                    if(Web->Inst->GetFileProperties(Web,&Web->LineBuff[5],
                             &Web->PageProp))
                     {
                         WS_ProcessGetVars(Web);

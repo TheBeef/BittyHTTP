@@ -81,10 +81,11 @@ struct FileInfo m_Files[]=
  *    FS_GetFileProperties
  *
  * SYNOPSIS:
- *    bool FS_GetFileProperties(const char *Filename,
+ *    bool FS_GetFileProperties(struct WebServer *Web,const char *Filename,
  *          struct WSPageProp *PageProp);
  *
  * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
  *    Filename [I] -- The filename from the URL that is being requested.
  *    PageProp [O] -- This is filled in with info about the page.
  *                      FileID -- The ID of the page.  This has no meaning
@@ -117,7 +118,7 @@ struct FileInfo m_Files[]=
  * SEE ALSO:
  *    FS_SendFile()
  ******************************************************************************/
-bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp)
+bool FS_GetFileProperties(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp)
 {
     int r;
 

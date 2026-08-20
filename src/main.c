@@ -45,7 +45,7 @@
 
 /*** FUNCTION PROTOTYPES      ***/
 static void usleep_replacement(long microseconds);
-bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp);
+bool FS_GetFileProperties(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp);
 void FS_SendFile(struct WebServer *Web,uintptr_t FileID);
 
 /*** VARIABLE DEFINITIONS     ***/

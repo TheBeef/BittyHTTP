@@ -2,14 +2,14 @@
  * FILENAME: WebServer.c
  *
  * PROJECT:
- *    Bitty HTTP 1.4
+ *    Bitty HTTP 1.5
  *
  * FILE DESCRIPTION:
  *    This file has the main web server in it.  You need to copy this file
  *    to your project.
  *
  * COPYRIGHT:
- *    Copyright (c) 2019 Paul Hutchinson
+ *    Copyright (c) 2026 Paul Hutchinson
  *
  *    Permission is hereby granted, free of charge, to any person obtaining a copy
  *    of this software and associated documentation files (the "Software"), to deal
@@ -74,35 +74,220 @@ static void WS_ProcessFormDataContentType(struct WebServer *Web);
 //static void DEBUG_PrintStoredArgs(struct WebServer *Web);
 
 /*** VARIABLE DEFINITIONS     ***/
-struct SocketCon m_ListeningSocket;
-struct WebServer m_WebServers[WS_OPT_MAX_CONNECTIONS];
+//struct SocketCon m_ListeningSocket;
+//struct WebServer m_WebServers[WS_OPT_MAX_CONNECTIONS];
 
 /*******************************************************************************
  * NAME:
  *    WS_Init
  *
  * SYNOPSIS:
- *    void WS_Init(void);
+ *    void WS_Init(struct WebServerInstance *Inst,uint16_t Port,
+ *              bool (*GetFilePropertiesCB)(struct WebServer *Web,
+ *                  const char *Filename,struct WSPageProp *PageProp),
+ *              void (*SendFileCB)(struct WebServer *Web,uintptr_t FileID),
+ *              bool (*POSTGetFileCB)(struct WebServer *Web,uintptr_t FileID,
+ *                  uint8_t *ChunkData,unsigned long ChunkOffset,
+ *                  unsigned long ChunkDataSize),
+ *              void (*POSTGetFileMetadataCB)(struct WebServer *Web,
+ *                  uintptr_t FileID,e_POSTMetaDataType Meta,
+ *                  const char *Metadata));
  *
  * PARAMETERS:
- *    NONE
+ *    Inst [I] -- The instance of the web server you want to init.
+ *    Port [I] -- What port this server listens on
+ *    GetFilePropertiesCB [I] -- See below
+ *    SendFileCB [I] -- See below
+ *    POSTGetFileCB [I] -- See below
+ *    POSTGetFileMetadataCB [I] -- See below
  *
  * FUNCTION:
- *    This function init's the web server.
+ *    This function init's the web server.  It will take and fill in the
+ *    callbacks and set everything up.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * CALLBACKS:
+ * =============================================================================
+ * NAME:
+ *    GetFilePropertiesCB
+ *
+ * SYNOPSIS:
+ *    bool GetFilePropertiesCB(struct WebServer *Web,
+ *          const char *Filename,struct WSPageProp *PageProp);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
+ *    Filename [I] -- The filename from the URL that is being requested.
+ *    PageProp [O] -- This is filled in with info about the page.
+ *                      FileID -- The ID of the page.  This has no meaning
+ *                                to the web server it is just passed back
+ *                                to SendFileCB().  It can hold a pointer.
+ *                      DynamicFile -- If this is true then the file will
+ *                                     no be cached.  false will set the
+ *                                     ETAG to 'DOCVER' where it will not
+ *                                     resent to the browser until 'DOCVER'
+ *                                     changes.
+ *                      Cookies -- A pointer to the list of cookies that this
+ *                                 page accepts.
+ *                      Gets -- A pointer to the list of GET vars that this
+ *                              page accepts.
+ *                      Posts -- A pointer to the list of POST vars that this
+ *                               page accepts.
+ *
+ * FUNCTION:
+ *    This function is called when a new request comes in for a file.  This
+ *    is before the headers for this request have been processed and the
+ *    web server is not yet ready to send a reply.
+ *
+ *    The web server does need to know if this is a valid file and some info
+ *    about the file.  That is what this function provides.
+ *
+ * RETURNS:
+ *    true -- File known and can be sent
+ *    false -- File is known.  Will produce a 404 reply.
+ *
+ * SEE ALSO:
+ *    SendFileCB()
+ * =============================================================================
+ * NAME:
+ *    SendFileCB
+ *
+ * SYNOPSIS:
+ *    void SendFileCB(struct WebServer *Web,uintptr_t FileID);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
+ *    FileID [I] -- The number that was setup in GetFilePropertiesCB().
+ *                  This has no meaning to the web server and is just passed
+ *                  to this function.  It can be a pointer to some object
+ *                  of your defining.
+ *
+ * FUNCTION:
+ *    This function is called from the web server when it is time to send the
+ *    contents of a "file".  You may also set headers using WS_Header() as
+ *    long as you haven't sent anything else yet.
  *
  * RETURNS:
  *    NONE
  *
  * SEE ALSO:
+ *    WS_Header(), WS_WriteWhole(), WS_WriteChunk(), WS_GET(), WS_COOKIE(),
+ *    WS_POST(), WS_SetCookie()
+ * =============================================================================
+ * NAME:
+ *    POSTGetFileCB
+ *
+ * SYNOPSIS:
+ *    bool POSTGetFileCB(struct WebServer *Web,uintptr_t FileID,
+ *              uint8_t *ChunkData,unsigned long ChunkOffset,
+ *              unsigned long ChunkDataSize);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
+ *    FileID [I] -- The number that was setup in GetFilePropertiesCB().
+ *                  This has no meaning to the web server and is just passed
+ *                  to this function.  It can be a pointer to some object
+ *                  of your defining.
+ *    ChunkData [I] -- A buffer with the file data in it.  This will not
+ *          have all the data in it just some of it (see below for details)
+ *    ChunkOffset [I] -- The number of bytes have already been send before
+ *          we got to this call.
+ *    ChunkDataSize [I] -- The number of bytes of data available 'ChunkData'.
+ *
+ * FUNCTION:
+ *    This function is called when handling a POST request with
+ *    enctype="multipart/form-data" set.
+ *
+ *    When this is call we have found a POST var in the WSPageProp.FilePosts
+ *    list and we have the some data for that chunk.  This will be called
+ *    many times for the same file as new data comes in the connection.
+ *    The data will always be in order (you do not have to re-assemble the
+ *    data, you just have to handle it coming a bit at a time).
+ *
+ *    When the whole file has been uploaded then this will be called one last
+ *    time with a 'ChunkDataSize' of 0.  This can be used to close the file.
+ *
+ *    If you do not support file uploads you can set this to NULL.
+ *
+ * RETURNS:
+ *    true -- Everything is good
+ *    false -- There was an error.  You should call WS_SetHTTPStatusCode()
+ *             to set the error code.
+ *
+ * EXAMPLE:
+ *    So for a file that has:
+ *      abcdefghijklmnopqrstuvwxyz
+ *    You might get the following calls:
+ *      FS_POSTGetFile(web,0,"abc",0,3);
+ *      FS_POSTGetFile(web,0,"defghijklmnop",3,13);
+ *      FS_POSTGetFile(web,0,"qrstuvwxyz",16,10);
+ *      FS_POSTGetFile(web,0,"",26,0);
+ *
+ * SEE ALSO:
+ *    SendFileCB()
+ * =============================================================================
+ * NAME:
+ *    POSTGetFileMetadataCB
+ *
+ * SYNOPSIS:
+ *    void POSTGetFileMetadataCB(struct WebServer *Web,uintptr_t FileID,
+ *              e_POSTMetaDataType Meta,const char *Metadata);
+ *
+ * PARAMETERS:
+ *    Web [I] -- The web context for this web connection.
+ *    FileID [I] -- The number that was setup in GetFilePropertiesCB().
+ *                  This has no meaning to the web server and is just passed
+ *                  to this function.  It can be a pointer to some object
+ *                  of your defining.
+ *    Meta [I] -- What type of metadata did we find.  Supported values:
+ *                      e_POSTMetaData_Filename -- The filename of the
+ *                          uploaded file
+ *                      e_POSTMetaData_ContentType -- The type of content.
+ *                          This will be a string from the Content-Type:
+ *                          header for this file.
+ *    Metadata [I] -- A pointer to the string with the metadata in it.
+ *
+ * FUNCTION:
+ *    This function is called when uploading a file with
+ *    enctype="multipart/form-data".  It lets you know info about the
+ *    file that is about to be sent to POSTGetFileCB().  Depending on what
+ *    the web browser send you may get all these metadata's or none of them.
+ *
+ *    If you do not handle file uploads or don't care about the metadata then
+ *    this can be set to NULL to ignore.
+ *
+ * RETURNS:
+ *    NONE
+ *
+ * SEE ALSO:
+ *    
+ * =============================================================================
+ *
+ * SEE ALSO:
  *    WS_Shutdown()
  ******************************************************************************/
-void WS_Init(void)
+void WS_Init(struct WebServerInstance *Inst,uint16_t Port,
+        bool (*GetFilePropertiesCB)(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp),
+        void (*SendFileCB)(struct WebServer *Web,uintptr_t FileID),
+        bool (*POSTGetFileCB)(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,unsigned long ChunkOffset,unsigned long ChunkDataSize),
+        void (*POSTGetFileMetadataCB)(struct WebServer *Web,uintptr_t FileID,e_POSTMetaDataType Meta,const char *Metadata))
 {
     int r;
 
-    SocketsCon_InitSockCon(&m_ListeningSocket);
+    Inst->Port=Port;
+    Inst->GetFileProperties=GetFilePropertiesCB;
+    Inst->SendFile=SendFileCB;
+    Inst->POSTGetFile=POSTGetFileCB;
+    Inst->POSTGetFileMetadata=POSTGetFileMetadataCB;
+
+    SocketsCon_InitSockCon(&Inst->ListeningSocket);
     for(r=0;r<WS_OPT_MAX_CONNECTIONS;r++)
-        SocketsCon_InitSockCon(&m_WebServers[r].Con);
+    {
+        Inst->WebServers[r].Inst=Inst;
+        SocketsCon_InitSockCon(&Inst->WebServers[r].Con);
+    }
 }
 
 /*******************************************************************************
@@ -110,10 +295,10 @@ void WS_Init(void)
  *    WS_Shutdown
  *
  * SYNOPSIS:
- *    void WS_Shutdown(void);
+ *    void WS_Shutdown(struct WebServerInstance *Inst);
  *
  * PARAMETERS:
- *    NONE
+ *    Inst [I] -- The instance of the web server to shutdown
  *
  * FUNCTION:
  *    This function releases anything the web server is using.  After you
@@ -126,13 +311,13 @@ void WS_Init(void)
  * SEE ALSO:
  *    WS_Init()
  ******************************************************************************/
-void WS_Shutdown(void)
+void WS_Shutdown(struct WebServerInstance *Inst)
 {
     int r;
 
-    SocketsCon_Close(&m_ListeningSocket);
+    SocketsCon_Close(&Inst->ListeningSocket);
     for(r=0;r<WS_OPT_MAX_CONNECTIONS;r++)
-        SocketsCon_Close(&m_WebServers[r].Con);
+        SocketsCon_Close(&Inst->WebServers[r].Con);
 }
 
 /*******************************************************************************
@@ -140,10 +325,10 @@ void WS_Shutdown(void)
  *    WS_Start
  *
  * SYNOPSIS:
- *    bool WS_Start(uint16_t Port);
+ *    bool WS_Start(struct WebServerInstance *Inst);
  *
  * PARAMETERS:
- *    Port [I] -- What port to listen on
+ *    Inst [I] -- The instance of the web server to work on
  *
  * FUNCTION:
  *    This function starts the web server listening for incoming connections.
@@ -155,11 +340,11 @@ void WS_Shutdown(void)
  * SEE ALSO:
  *    WS_WriteWhole(), WS_WriteChunk(), WS_Header(),
  ******************************************************************************/
-bool WS_Start(uint16_t Port)
+bool WS_Start(struct WebServerInstance *Inst)
 {
-    SocketsCon_EnableAddressReuse(&m_ListeningSocket,true);
+    SocketsCon_EnableAddressReuse(&Inst->ListeningSocket,true);
 
-    if(!SocketsCon_Listen(&m_ListeningSocket,NULL,Port))
+    if(!SocketsCon_Listen(&Inst->ListeningSocket,NULL,Inst->Port))
         return false;
     return true;
 }
@@ -214,10 +399,10 @@ static void WS_ResetWebServer(struct WebServer *Web)
  *    WS_Tick
  *
  * SYNOPSIS:
- *    void WS_Tick(void);
+ *    void WS_Tick(struct WebServerInstance *Inst);
  *
  * PARAMETERS:
- *    NONE
+ *    Inst [I] -- The instance of the web server to work on
  *
  * FUNCTION:
  *    This function runs the web server.  It accepts new connections, reads
@@ -233,31 +418,32 @@ static void WS_ResetWebServer(struct WebServer *Web)
  * SEE ALSO:
  *    
  ******************************************************************************/
-void WS_Tick(void)
+void WS_Tick(struct WebServerInstance *Inst)
 {
     int con;
     int Bytes;
     char ReadBuff[100];
 
-    SocketsCon_Tick(&m_ListeningSocket);
+    SocketsCon_Tick(&Inst->ListeningSocket);
 
     /* Do all the connections */
     for(con=0;con<WS_OPT_MAX_CONNECTIONS;con++)
     {
-        SocketsCon_Tick(&m_WebServers[con].Con);
+        SocketsCon_Tick(&Inst->WebServers[con].Con);
 
-        if(!SocketsCon_IsConnected(&m_WebServers[con].Con))
+        if(!SocketsCon_IsConnected(&Inst->WebServers[con].Con))
         {
             /* Poll for any new connections (we keep asking giving each free
                connection a chance to get the new connection) */
-            if(SocketsCon_Accept(&m_ListeningSocket,&m_WebServers[con].Con))
+            if(SocketsCon_Accept(&Inst->ListeningSocket,
+                    &Inst->WebServers[con].Con))
             {
                 /* Ok, we got a new connection */
-                WS_ResetWebServer(&m_WebServers[con]);
+                WS_ResetWebServer(&Inst->WebServers[con]);
             }
             else
             {
-                if(SocketsCon_GetErrorCode(&m_ListeningSocket)!=
+                if(SocketsCon_GetErrorCode(&Inst->ListeningSocket)!=
                         e_ConnectError_AllOk)
                 {
                     /* We had an error accepting the connection, the listening
@@ -268,16 +454,16 @@ void WS_Tick(void)
         else
         {
             /* Handle requests from connected connections */
-            Bytes=SocketsCon_Read(&m_WebServers[con].Con,ReadBuff,
+            Bytes=SocketsCon_Read(&Inst->WebServers[con].Con,ReadBuff,
                     sizeof(ReadBuff));
             if(Bytes==0)
             {
-                if(ReadElapsedClock()-m_WebServers[con].LastReadTime>=
+                if(ReadElapsedClock()-(Inst->WebServers[con].LastReadTime)>=
                         WS_SECONDS_UNTIL_CONNECTION_RELEASE)
                 {
                     /* Ok, connection timed out, hang up so others can use it */
-                    SocketsCon_Close(&m_WebServers[con].Con);
-                    m_WebServers[con].State=e_WebServerState_Closed;
+                    SocketsCon_Close(&Inst->WebServers[con].Con);
+                    Inst->WebServers[con].State=e_WebServerState_Closed;
                 }
 
                 continue;
@@ -285,14 +471,14 @@ void WS_Tick(void)
             if(Bytes<0)
             {
                 /* Error, hang up */
-                SocketsCon_Close(&m_WebServers[con].Con);
-                m_WebServers[con].State=e_WebServerState_Closed;
+                SocketsCon_Close(&Inst->WebServers[con].Con);
+                Inst->WebServers[con].State=e_WebServerState_Closed;
                 continue;
             }
 
-            WS_RunServer(&m_WebServers[con],ReadBuff,Bytes);
+            WS_RunServer(&Inst->WebServers[con],ReadBuff,Bytes);
 
-            m_WebServers[con].LastReadTime=ReadElapsedClock();
+            Inst->WebServers[con].LastReadTime=ReadElapsedClock();
         }
     }
 }
@@ -354,12 +540,13 @@ static void WS_RunServer(struct WebServer *Web,char *ReadBuff,int Bytes)
                 BytesLeft-=BytesUsed;
 
                 /* We found the end */
-printf("================ %s\n",Web->LineBuff);
+//printf("================ %s\n",Web->LineBuff);
                 if(strncmp(Web->LineBuff,"GET ",4)==0)
                 {
                     Web->Req=e_ReqType_Get;
                     WS_ProcessURI(Web);
-                    if(FS_GetFileProperties(&Web->LineBuff[4],&Web->PageProp))
+                    if(Web->Inst->GetFileProperties(Web,&Web->LineBuff[4],
+                            &Web->PageProp))
                     {
                         WS_ProcessGetVars(Web);
                     }
@@ -375,7 +562,8 @@ printf("================ %s\n",Web->LineBuff);
                     Web->EncType=e_EncType_URLencoded;
 
                     WS_ProcessURI(Web);
-                    if(FS_GetFileProperties(&Web->LineBuff[5],&Web->PageProp))
+                    if(Web->Inst->GetFileProperties(Web,&Web->LineBuff[5],
+                            &Web->PageProp))
                     {
                         WS_ProcessGetVars(Web);
                     }
@@ -760,8 +948,7 @@ static void WS_ProcessHeader(struct WebServer *Web)
     char *Pos;
     bool Weak;
 
-printf("SEE:%s\n",Web->LineBuff);
-//Content-Type: application/x-www-form-urlencoded
+//printf("SEE:%s\n",Web->LineBuff);
 
     if(strncmp(Web->LineBuff,"If-None-Match:",14)==0)
     {
@@ -1095,7 +1282,7 @@ static void WS_SendResponse(struct WebServer *Web)
     {
         /* Ok, process file */
         Web->ReplyStatus=e_ReplyStatus_Ok;
-        FS_SendFile(Web,Web->PageProp.FileID);
+        Web->Inst->SendFile(Web,Web->PageProp.FileID);
     }
     else
     {
@@ -2150,9 +2337,11 @@ bool WS_SetCookie(struct WebServer *Web,const char *Name,const char *Value,
  *    WS_GetOSSocketHandles
  *
  * SYNOPSIS:
- *    int WS_GetOSSocketHandles(t_ConSocketHandle *Handles);
+ *    int WS_GetOSSocketHandles(struct WebServerInstance *Inst,
+ *              t_ConSocketHandle *Handles);
  *
  * PARAMETERS:
+ *    Inst [I] -- The instance of the web server to work on
  *    Handles [O] -- An array to fill in with the handles being used by the
  *                   web server.  This must be at least
  *                   'WS_OPT_MAX_CONNECTIONS+1' in size.
@@ -2169,7 +2358,8 @@ bool WS_SetCookie(struct WebServer *Web,const char *Name,const char *Value,
  * SEE ALSO:
  *    
  ******************************************************************************/
-int WS_GetOSSocketHandles(t_ConSocketHandle *Handles)
+int WS_GetOSSocketHandles(struct WebServerInstance *Inst,
+        t_ConSocketHandle *Handles)
 {
     t_ConSocketHandle SocketHandle;
     int r;
@@ -2177,9 +2367,9 @@ int WS_GetOSSocketHandles(t_ConSocketHandle *Handles)
 
     /* Fill in the first entry with the listening socket */
     InsertPos=0;
-    SocketsCon_GetSocketHandle(&m_ListeningSocket,&Handles[InsertPos++]);
+    SocketsCon_GetSocketHandle(&Inst->ListeningSocket,&Handles[InsertPos++]);
     for(r=0;r<WS_OPT_MAX_CONNECTIONS;r++)
-        if(SocketsCon_GetSocketHandle(&m_WebServers[r].Con,&SocketHandle))
+        if(SocketsCon_GetSocketHandle(&Inst->WebServers[r].Con,&SocketHandle))
             Handles[InsertPos++]=SocketHandle;
 
     return InsertPos;
@@ -2936,9 +3126,6 @@ static void WS_ProcessPOSTFormDataBody(struct WebServer *Web,char *ReadPoint,
     {
         c=*ReadPoint;
 
-printf("\33[32m%c\33[m",c);
-fflush(stdout);
-
         switch(Web->PostState)
         {
             case e_WSPostState_FormData_BoundarySearch:
@@ -3183,15 +3370,18 @@ static void WS_FlushFormDataVar(struct WebServer *Web,bool EndOfVar)
         /* Send what we have collected to the file system */
         if(Web->LineBuffPos>0)
         {
-            if(!FS_POSTGetFile(Web,Web->PageProp.FileID,
-                    (uint8_t *)Web->LineBuff,Web->PostFileOffset,
-                    Web->LineBuffPos))
+            if(Web->Inst->POSTGetFile!=NULL)
             {
-                /* The file system had an error (it has set the status code),
-                   stop sending it data */
-                Web->PostVarIsFile=false;
-                Web->LineBuffPos=0;
-                return;
+                if(!Web->Inst->POSTGetFile(Web,Web->PageProp.FileID,
+                        (uint8_t *)Web->LineBuff,Web->PostFileOffset,
+                        Web->LineBuffPos))
+                {
+                    /* The file system had an error (it has set the status
+                       code), stop sending it data */
+                    Web->PostVarIsFile=false;
+                    Web->LineBuffPos=0;
+                    return;
+                }
             }
             Web->PostFileOffset+=Web->LineBuffPos;
             Web->LineBuffPos=0;
@@ -3200,8 +3390,11 @@ static void WS_FlushFormDataVar(struct WebServer *Web,bool EndOfVar)
         if(EndOfVar)
         {
             /* Tell the file system that this is the end of the file */
-            FS_POSTGetFile(Web,Web->PageProp.FileID,(uint8_t *)Web->LineBuff,
-                    Web->PostFileOffset,0);
+            if(Web->Inst->POSTGetFile!=NULL)
+            {
+                Web->Inst->POSTGetFile(Web,Web->PageProp.FileID,
+                        (uint8_t *)Web->LineBuff,Web->PostFileOffset,0);
+            }
             Web->PostVarIsFile=false;
         }
         return;
@@ -3235,7 +3428,7 @@ static void WS_FlushFormDataVar(struct WebServer *Web,bool EndOfVar)
  *    It pulls the name of the var out of the header and then sets up where
  *    the data for this part is going to go.  If the name is in the
  *    Web->PageProp.FilePosts[] list then the data will be sent to
- *    FS_POSTGetFile(), if it is in the Web->PageProp.Posts[] list then it
+ *    POSTGetFile(), if it is in the Web->PageProp.Posts[] list then it
  *    will be stored in 'Web->ArgsStorage', and if it is in nether list then
  *    it will be thrown away.
  *
@@ -3296,8 +3489,11 @@ static void WS_ProcessFormDataDisposition(struct WebServer *Web)
         *End=0;
         if(*FileName!=0)
         {
-            FS_POSTGetFileMetadata(Web,Web->PageProp.FileID,
-                    e_POSTMetaData_Filename,FileName);
+            if(Web->Inst->POSTGetFileMetadata!=NULL)
+            {
+                Web->Inst->POSTGetFileMetadata(Web,Web->PageProp.FileID,
+                        e_POSTMetaData_Filename,FileName);
+            }
         }
     }
 
@@ -3328,7 +3524,7 @@ static void WS_ProcessFormDataDisposition(struct WebServer *Web)
         {
             if(strcmp(Web->PageProp.FilePosts[p],Web->LineBuff)==0)
             {
-                /* It is, the data will be sent to FS_POSTGetFile() as it
+                /* It is, the data will be sent to POSTGetFile() as it
                    comes in */
                 Web->PostVarIsFile=true;
                 Web->PostFileOffset=0;
@@ -3356,13 +3552,13 @@ static void WS_ProcessFormDataDisposition(struct WebServer *Web)
  *    This function processes the "Content-Type" header of a
  *    multipart/form-data part.  It will take the line from 'Web->LineBuff'.
  *
- *    It just calls the FS_POSTGetFileMetadata() function with the value.
+ *    It just calls the POSTGetFileMetadata() function with the value.
  *
  * RETURNS:
  *    NONE
  *
  * SEE ALSO:
- *    FS_POSTGetFileMetadata()
+ *    POSTGetFileMetadata()
  ******************************************************************************/
 static void WS_ProcessFormDataContentType(struct WebServer *Web)
 {
@@ -3377,6 +3573,9 @@ static void WS_ProcessFormDataContentType(struct WebServer *Web)
     if(*Value==0)
         return;
 
-    FS_POSTGetFileMetadata(Web,Web->PageProp.FileID,e_POSTMetaData_ContentType,
-            Value);
+    if(Web->Inst->POSTGetFileMetadata!=NULL)
+    {
+        Web->Inst->POSTGetFileMetadata(Web,Web->PageProp.FileID,
+                e_POSTMetaData_ContentType,Value);
+    }
 }

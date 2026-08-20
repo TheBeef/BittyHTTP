@@ -48,8 +48,11 @@
 /*** TYPE DEFINITIONS         ***/
 
 /*** FUNCTION PROTOTYPES      ***/
+bool FS_GetFileProperties(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp);
+void FS_SendFile(struct WebServer *Web,uintptr_t FileID);
 
 /*** VARIABLE DEFINITIONS     ***/
+struct WebServerInstance m_WebServerInst;
 bool g_Quit;
 
 int main(void)
@@ -62,11 +65,11 @@ int main(void)
     int HandleCount;
 
     SocketsCon_InitSocketConSystem();
-    WS_Init();
+    WS_Init(&m_WebServerInst,3000,FS_GetFileProperties,FS_SendFile,NULL,NULL);
 
     LoadTrackingCode();
 
-    if(!WS_Start(3000))
+    if(!WS_Start(&m_WebServerInst))
     {
         printf("Failed to start web server\n");
         return 0;
@@ -77,13 +80,13 @@ int main(void)
     g_Quit=false;
     while(!g_Quit)
     {
-        WS_Tick();
+        WS_Tick(&m_WebServerInst);
 
         /* Wait for traffic */
         FD_ZERO(&rfds);
 
         /* What handles are open may change each loop, so we think it all */
-        HandleCount=WS_GetOSSocketHandles(OSHandles);
+        HandleCount=WS_GetOSSocketHandles(&m_WebServerInst,OSHandles);
         MaxFD=0;
         for(r=0;r<HandleCount;r++)
         {
@@ -100,9 +103,9 @@ int main(void)
     /* Run the web server for a while so we can send any "finished" page */
     Waiting2End=ReadElapsedClock();
     while(ReadElapsedClock()-Waiting2End<3)
-        WS_Tick();
+        WS_Tick(&m_WebServerInst);
 
-    WS_Shutdown();
+    WS_Shutdown(&m_WebServerInst);
     SocketsCon_ShutdownSocketConSystem();
     FreeTrackingCode();
 

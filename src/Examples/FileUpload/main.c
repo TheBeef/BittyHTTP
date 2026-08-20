@@ -49,7 +49,7 @@
 /*** TYPE DEFINITIONS         ***/
 
 /*** FUNCTION PROTOTYPES      ***/
-bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp);
+bool FS_GetFileProperties(struct WebServer *Web,const char *Filename,struct WSPageProp *PageProp);
 void FS_SendFile(struct WebServer *Web,uintptr_t FileID);
 bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,unsigned long ChunkOffset,unsigned long ChunkDataSize);
 void FS_POSTGetFileMetadata(struct WebServer *Web,uintptr_t FileID,e_POSTMetaDataType Meta,const char *Metadata);
