@@ -293,3 +293,4 @@ void File_Error404(struct WebServer *Web)
     WS_SetHTTPStatusCode(Web,e_ReplyStatus_NotFound);
     WS_WriteWhole(Web,Error404HTML,sizeof(Error404HTML)-1);
 }
+

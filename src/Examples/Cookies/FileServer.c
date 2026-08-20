@@ -303,4 +303,3 @@ void File_Root(struct WebServer *Web)
 
     WS_WriteChunk(Web,DisplayHTML_End,sizeof(DisplayHTML_End)-1);
 }
-

@@ -3,5 +3,9 @@
 build
 website.exe
 *.exe
+src/Examples/404Errors/Error404
+src/Examples/CSS/CSS
+src/Examples/ChunkedOutput/ChunkedOutput
+src/Examples/Cookies/CookiesVars
 
 
