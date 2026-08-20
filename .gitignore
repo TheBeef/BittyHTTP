@@ -7,5 +7,12 @@ src/Examples/404Errors/Error404
 src/Examples/CSS/CSS
 src/Examples/ChunkedOutput/ChunkedOutput
 src/Examples/Cookies/CookiesVars
-
+src/Examples/GETVars/GETVars
+src/Examples/Graphics/Graphics
+src/Examples/Headers/Headers
+src/Examples/HelloWorld/HelloWorld
+src/Examples/POSTVars/POSTVars
+src/Examples/URLEncodingDecoding/URLEncodeDecode
+src/Examples/VarsCopy/VarsCopy
+src/Examples/Waiting/Waiting
 

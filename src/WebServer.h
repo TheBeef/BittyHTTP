@@ -122,6 +122,7 @@ typedef uint32_t t_ElapsedTime;   // Time to be used for elapsed time
 
 struct WebServer
 {
+    struct WebServerInstance *Inst;
     e_WebServerStateType State;
     struct SocketCon Con;
     int LineBuffPos;
@@ -146,15 +147,31 @@ struct WebServer
     char POSTBoundaryStr[WS_POST_BOUNDARY_SIZE];
 };
 
+struct WebServerInstance
+{
+    struct SocketCon ListeningSocket;
+    uint16_t Port;
+    struct WebServer WebServers[WS_OPT_MAX_CONNECTIONS];
+    bool (*GetFileProperties)(const char *Filename,struct WSPageProp *PageProp);
+    void (*SendFile)(struct WebServer *Web,uintptr_t FileID);
+    bool (*POSTGetFile)(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,unsigned long ChunkOffset,unsigned long ChunkDataSize);
+    void (*POSTGetFileMetadata)(struct WebServer *Web,uintptr_t FileID,e_POSTMetaDataType Meta,const char *Metadata);
+};
+
 /***  CLASS DEFINITIONS                ***/
 
 /***  GLOBAL VARIABLE DEFINITIONS      ***/
 
 /***  EXTERNAL FUNCTION PROTOTYPES     ***/
-void WS_Init(void);
-void WS_Shutdown(void);
-bool WS_Start(uint16_t Port);
-void WS_Tick(void);
+void WS_Init(struct WebServerInstance *Inst,uint16_t Port,
+        bool (*GetFilePropertiesCB)(const char *Filename,struct WSPageProp *PageProp),
+        void (*SendFileCB)(struct WebServer *Web,uintptr_t FileID),
+        bool (*POSTGetFileCB)(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,unsigned long ChunkOffset,unsigned long ChunkDataSize),
+        void (*POSTGetFileMetadataCB)(struct WebServer *Web,uintptr_t FileID,e_POSTMetaDataType Meta,const char *Metadata));
+void WS_Shutdown(struct WebServerInstance *Inst);
+bool WS_Start(struct WebServerInstance *Inst);
+void WS_Tick(struct WebServerInstance *Inst);
+
 void WS_WriteWhole(struct WebServer *Web,const char *Buffer,int Len);
 void WS_WriteWholeStr(struct WebServer *Web,const char *Buffer);
 void WS_WriteChunk(struct WebServer *Web,const char *Buffer,int Len);
@@ -176,68 +193,15 @@ bool WS_SetCookie(struct WebServer *Web,const char *Name,const char *Value,
 bool WS_URLEncode(const char *Value,char *OutputBuffer,int MaxLen);
 bool WS_URLDecode(const char *Value,char *Decoded,int MaxLen);
 char *WS_URLDecodeInPlace(char *Value);
-int WS_GetOSSocketHandles(t_ConSocketHandle *Handles);
+int WS_GetOSSocketHandles(struct WebServerInstance *Inst,t_ConSocketHandle *Handles);
 
 /* Web server calls these */
-bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp);
-void FS_SendFile(struct WebServer *Web,uintptr_t FileID);
-
-/*******************************************************************************
- * NAME:
- *    FS_POSTGetFile
- *
- * SYNOPSIS:
- *    bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,
- *              uint8_t *ChunkData,unsigned long ChunkOffset,
- *              unsigned long ChunkDataSize);
- *
- * PARAMETERS:
- *    Web [I] -- The web context for this web connection.
- *    FileID [I] -- The number that was setup in FS_GetFileProperties().
- *                  This has no meaning to the web server and is just passed
- *                  to this function.  It can be a pointer to some object
- *                  of your defining.
- *    ChunkData [I] -- A buffer with the file data in it.  This will not
- *          have all the data in it just some of it (see below for details)
- *    ChunkOffset [I] -- The number of bytes have already been send before
- *          we got to this call.
- *    ChunkDataSize [I] -- The number of bytes of data available 'ChunkData'.
- *
- * FUNCTION:
- *    This function is called when handling a POST request with
- *    enctype="multipart/form-data" set.
- *
- *    When this is call we have found a POST var in the WSPageProp.FilePosts
- *    list and we have the some data for that chunk.  This will be called
- *    many times for the same file as new data comes in the connection.
- *    The data will always be in order (you do not have to re-assemble the
- *    data, you just have to handle it coming a bit at a time).
- *
- *    When the whole file has been uploaded then this will be called one last
- *    time with a 'ChunkDataSize' of 0.  This can be used to close the file.
- *
- * RETURNS:
- *    true -- Everything is good
- *    false -- There was an error.  You should call WS_SetHTTPStatusCode()
- *             to set the error code.
- *
- * EXAMPLE:
- *    So for a file that has:
- *      abcdefghijklmnopqrstuvwxyz
- *    You might get the following calls:
- *      FS_POSTGetFile(web,0,"abc",0,3);
- *      FS_POSTGetFile(web,0,"defghijklmnop",3,13);
- *      FS_POSTGetFile(web,0,"qrstuvwxyz",16,10);
- *      FS_POSTGetFile(web,0,"",26,0);
- *
- * SEE ALSO:
- *    FS_SendFile()
- ******************************************************************************/
-bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,
-        unsigned long ChunkOffset,unsigned long ChunkDataSize);
-
-void FS_POSTGetFileMetadata(struct WebServer *Web,uintptr_t FileID,
-        e_POSTMetaDataType Meta,const char *Metadata);
+//bool FS_GetFileProperties(const char *Filename,struct WSPageProp *PageProp);
+//void FS_SendFile(struct WebServer *Web,uintptr_t FileID);
+//bool FS_POSTGetFile(struct WebServer *Web,uintptr_t FileID,uint8_t *ChunkData,
+//        unsigned long ChunkOffset,unsigned long ChunkDataSize);
+//void FS_POSTGetFileMetadata(struct WebServer *Web,uintptr_t FileID,
+//        e_POSTMetaDataType Meta,const char *Metadata);
 
 t_ElapsedTime ReadElapsedClock(void);
 
