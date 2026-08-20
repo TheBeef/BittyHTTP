@@ -974,7 +974,9 @@ static void WS_ProcessHeader(struct WebServer *Web)
                 ETag++;
             if(*ETag==0)
             {
-                Web->ReplyStatus=e_ReplyStatus_BadRequest;
+                /* We where doing bad requests (which it is, but we are now
+                   going to just pretend there was no etag) */
+                // Web->ReplyStatus=e_ReplyStatus_BadRequest;
                 return;
             }
 
@@ -986,7 +988,9 @@ static void WS_ProcessHeader(struct WebServer *Web)
             if(*End==0)
             {
                 /* The end? */
-                Web->ReplyStatus=e_ReplyStatus_BadRequest;
+                /* We where doing bad requests (which it is, but we are now
+                   going to just pretend there was no etag) */
+                // Web->ReplyStatus=e_ReplyStatus_BadRequest;
                 return;
             }
             *End=0;

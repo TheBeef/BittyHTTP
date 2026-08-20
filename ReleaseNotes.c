@@ -85,6 +85,12 @@ static struct ReleaseNote m_Notes_Next[]=
          " from the same program.  It also made some call back functions"
          " optional, so you don't have to provide stub functions."
     },
+    {
+         "Changed the bad If-None-Match rules",
+         "When a badly formated If-None-Match: header was found a 400 bad req"
+         " was being returned.  Now it just ignores the header and always"
+         " sends the file."
+    },
 };
 
 static struct ReleaseNote m_Notes_1_4[]=
